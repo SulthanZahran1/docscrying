@@ -122,7 +122,8 @@ struct DocMeta {
     path: String,
     kind: String,
     size: u64,
-    mtime: String,
+    /// Unix seconds; matches the CLI index's u64 mtime on the wire.
+    mtime: u64,
 }
 
 #[derive(Deserialize)]
