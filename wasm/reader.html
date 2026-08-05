@@ -166,7 +166,22 @@ body.collapsed #sidebar { visibility: hidden; }
   background: var(--panel);
   border-right: 1px solid var(--border);
 }
-#search-wrap { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+#chips { display: flex; gap: 4px; padding: 10px 12px 0; }
+.chip {
+  flex: 1;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  padding: 5px 0 4px;
+  cursor: pointer;
+}
+.chip:hover { color: var(--text); border-color: var(--text-faint); }
+.chip.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+#search-wrap { padding: 8px 12px 10px; border-bottom: 1px solid var(--border); }
 #search {
   width: 100%;
   background: var(--panel-2);
@@ -185,8 +200,7 @@ body.collapsed #sidebar { visibility: hidden; }
   overflow-y: auto;
   padding: 8px 6px 24px;
 }
-.dir-group { margin-bottom: 2px; }
-.dir-head {
+.t-node {
   display: flex; align-items: center; gap: 6px;
   padding: 4px 8px;
   cursor: pointer;
@@ -197,13 +211,23 @@ body.collapsed #sidebar { visibility: hidden; }
   text-transform: uppercase;
   color: var(--text-dim);
   font-family: var(--font-mono);
+  white-space: nowrap;
 }
-.dir-head:hover { color: var(--text); }
-.dir-head .caret { width: 10px; color: var(--text-faint); font-size: 9px; transition: transform 0.15s; }
-.dir-group.collapsed .caret { transform: rotate(-90deg); }
-.dir-group.collapsed .dir-children { display: none; }
-.dir-children { padding-left: 12px; }
-.doc-row {
+.t-node:hover { color: var(--text); }
+.t-node .caret {
+  width: 10px; flex-shrink: 0;
+  color: var(--text-faint); font-size: 9px;
+  transition: transform 0.15s;
+}
+.t-node.collapsed .caret { transform: rotate(-90deg); }
+.t-node .t-count {
+  margin-left: auto;
+  color: var(--text-faint);
+  font-size: 9.5px;
+}
+.t-node.collapsed + .t-children { display: none; }
+.t-children { padding-left: 12px; }
+.t-doc {
   display: flex; align-items: center; gap: 8px;
   padding: 4px 8px;
   border-radius: var(--radius);
@@ -212,18 +236,19 @@ body.collapsed #sidebar { visibility: hidden; }
   font-size: 13px;
   white-space: nowrap;
 }
-.doc-row:hover { background: var(--panel-2); }
-.doc-row.active { background: var(--accent-dim); box-shadow: inset 2px 0 0 var(--accent); }
-.doc-row .name { flex: 1; overflow: hidden; text-overflow: ellipsis; }
-.doc-row .name .match { background: var(--accent-dim); color: var(--accent); border-radius: 2px; }
-.doc-row .size {
+.t-doc:hover { background: var(--panel-2); }
+.t-doc.active { background: var(--accent-dim); box-shadow: inset 2px 0 0 var(--accent); }
+.t-doc .name { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.t-doc .name .match { background: var(--accent-dim); color: var(--accent); border-radius: 2px; }
+.t-doc .size {
   font-family: var(--font-mono);
   font-size: 10.5px;
   color: var(--text-faint);
   opacity: 0;
   transition: opacity 0.12s;
 }
-.doc-row:hover .size, .doc-row.active .size { opacity: 1; }
+.t-doc:hover .size, .t-doc.active .size { opacity: 1; }
+#tree.flattened .t-node { display: none; }
 #empty-search { display: none; padding: 32px 16px; text-align: center; color: var(--text-dim); font-size: 13px; }
 #empty-search .hint { font-family: var(--font-mono); font-size: 11px; color: var(--text-faint); margin-top: 6px; }
 #empty-search.show { display: block; }
@@ -397,6 +422,8 @@ body.collapsed #sidebar { visibility: hidden; }
 #statusbar .sb-accent { color: var(--accent); }
 
 #scrim { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 40; }
+#drawer-close { display: none; background: none; border: 1px solid var(--border-strong); color: var(--text-dim); border-radius: var(--radius); width: 30px; height: 30px; font-size: 12px; cursor: pointer; }
+#drawer-close:hover { color: var(--text); border-color: var(--text-faint); }
 
 @media (max-width: 767px) {
   #app { grid-template-columns: 1fr; }
@@ -411,9 +438,18 @@ body.collapsed #sidebar { visibility: hidden; }
   }
   body.drawer-open #sidebar { transform: translateX(0); }
   body.drawer-open #scrim { display: block; }
+  #drawer-close { display: block; position: absolute; top: 8px; right: 8px; z-index: 51; }
+  #tree { padding-bottom: 84px; }
+  .t-node, .t-doc { padding-top: 8px; padding-bottom: 8px; }
   #content { padding: 20px 18px 80px; }
   #crumbs { padding: 8px 12px; }
   #crumbs .doc-meta { display: none; }
+  #header { padding: 0 10px; gap: 8px; }
+  #burger { padding: 6px 8px; }
+  #header .count { display: none; }
+  #header .code-pill { font-size: 9.5px; padding: 3px 7px; }
+  .md table { display: block; overflow-x: auto; white-space: nowrap; }
+  .md pre { margin-left: -18px; margin-right: -18px; border-radius: 0; }
 }
 </style>
 </head>
@@ -439,6 +475,12 @@ body.collapsed #sidebar { visibility: hidden; }
     <span class="code-pill" id="header-code"></span>
   </header>
   <aside id="sidebar">
+    <button id="drawer-close" aria-label="Close tree">&#10005;</button>
+    <div id="chips">
+      <button class="chip" data-scope="all">ALL</button>
+      <button class="chip" data-scope="skills">SKILLS</button>
+      <button class="chip active" data-scope="docs">DOCS</button>
+    </div>
     <div id="search-wrap">
       <input id="search" type="text" placeholder="filter by filename" autocomplete="off" spellcheck="false">
     </div>
@@ -453,7 +495,7 @@ body.collapsed #sidebar { visibility: hidden; }
     <div id="content">
       <div class="empty">
         <h2>Nothing open</h2>
-        <p>Pick a doc from the tree. Markdown and html render inline, rst/adoc/txt show as plain text, pdf/docx are downloads.</p>
+        <p>Pick a doc from the tree. Markdown and html render inline, rst/adoc/txt show as plain text, pdf/docx are downloads. Skill docs are hidden by default; hit SKILLS to see them.</p>
       </div>
     </div>
   </main>
@@ -478,6 +520,7 @@ const state = {
   collapsed: {},
   htmlTheme: false,
   code: null,
+  scope: "docs",
 };
 
 function fmtSize(n) {
@@ -525,15 +568,14 @@ function updateHeader() {
   $("header-repo").textContent = root === "." ? "./" : "./" + root.split("/")[0];
 }
 
-function groupDocs(docs) {
-  const groups = {};
-  docs.forEach((d) => {
-    const dir = dirOf(d.path);
-    (groups[dir] = groups[dir] || []).push(d);
-  });
-  return Object.keys(groups)
-    .sort((a, b) => (a === "." ? -1 : b === "." ? 1 : a < b ? -1 : 1))
-    .map((dir) => ({ dir, docs: groups[dir] }));
+function isSkillPath(path) {
+  const parts = path.split("/");
+  return parts.includes("skills") || parts.includes(".claude") || parts.includes(".agents");
+}
+function scopeFilter(docs) {
+  if (state.scope === "all") return docs;
+  if (state.scope === "skills") return docs.filter((d) => isSkillPath(d.path));
+  return docs.filter((d) => !isSkillPath(d.path));
 }
 
 function highlight(name) {
@@ -550,11 +592,12 @@ function renderTree() {
   const tree = $("tree");
   const empty = $("empty-search");
   const q = state.search.trim();
+  const scoped = scopeFilter(state.docs);
   let list;
   if (q) {
-    list = state.docs.filter((d) => baseOf(d.path).toLowerCase().indexOf(q.toLowerCase()) !== -1);
+    list = scoped.filter((d) => baseOf(d.path).toLowerCase().indexOf(q.toLowerCase()) !== -1);
   } else {
-    list = state.docs;
+    list = scoped;
   }
   if (list.length === 0) {
     tree.innerHTML = "";
@@ -563,27 +606,53 @@ function renderTree() {
     return;
   }
   empty.classList.remove("show");
+  tree.classList.toggle("flattened", !!q);
   let html = "";
   if (q) {
     list.slice().sort((a, b) => (a.path < b.path ? -1 : 1)).forEach((d) => {
-      html += '<div class="doc-row' + (state.selected === d.id ? " active" : "") +
+      html += '<div class="t-doc' + (state.selected === d.id ? " active" : "") +
         '" data-id="' + d.id + '"><span class="name">' + highlight(baseOf(d.path)) +
         '</span><span class="size">' + fmtSize(d.size) + "</span></div>";
     });
-  } else {
-    groupDocs(list).forEach((g) => {
-      const collapsed = !!state.collapsed[g.dir];
-      html += '<div class="dir-group' + (collapsed ? " collapsed" : "") + '" data-dir="' + escapeHtml(g.dir) + '">' +
-        '<div class="dir-head"><span class="caret">&#9662;</span>' + (g.dir === "." ? "root" : escapeHtml(g.dir)) + "</div>" +
-        '<div class="dir-children">';
-      g.docs.forEach((d) => {
-        html += '<div class="doc-row' + (state.selected === d.id ? " active" : "") +
+    tree.innerHTML = html;
+    return;
+  }
+  // build nested tree
+  const root = { name: "", dirs: {}, docs: [] };
+  list.forEach((d) => {
+    const parts = dirOf(d.path) === "." ? [] : dirOf(d.path).split("/").filter(Boolean);
+    let node = root;
+    parts.forEach((p) => {
+      node = (node.dirs[p] = node.dirs[p] || { name: p, dirs: {}, docs: [] });
+    });
+    node.docs.push(d);
+  });
+  const open = (node) => !state.collapsed[node.key];
+  const walk = (node, isRoot) => {
+    const dirNames = Object.keys(node.dirs).sort((a, b) => (a < b ? -1 : 1));
+    const docList = node.docs.slice().sort((a, b) => (baseOf(a.path) < baseOf(b.path) ? -1 : 1));
+    let out = "";
+    const renderDocs = () => {
+      docList.forEach((d) => {
+        out += '<div class="t-doc' + (state.selected === d.id ? " active" : "") +
           '" data-id="' + d.id + '"><span class="name">' + escapeHtml(baseOf(d.path)) +
           '</span><span class="size">' + fmtSize(d.size) + "</span></div>";
       });
-      html += "</div></div>";
+    };
+    if (isRoot) renderDocs(); // entry docs first, then dirs
+    dirNames.forEach((name) => {
+      const child = node.dirs[name];
+      child.key = (node.key || "") + "/" + name;
+      const n = child.docs.length + Object.keys(child.dirs).reduce((a, k) => a + child.dirs[k].docs.length + Object.keys(child.dirs[k].dirs).length, 0);
+      out += '<div class="t-node' + (open(child) ? "" : " collapsed") + '" data-key="' + escapeHtml(child.key) + '">' +
+        '<span class="caret">&#9662;</span>' + escapeHtml(name) +
+        '<span class="t-count">' + n + "</span></div>";
+      out += '<div class="t-children">' + walk(child, false) + "</div>";
     });
-  }
+    if (!isRoot) renderDocs();
+    return out;
+  };
+  html = walk(root, true);
   tree.innerHTML = html;
 }
 
@@ -698,14 +767,24 @@ async function openDoc(id) {
 $("pair-btn").onclick = doPair;
 $("pair-input").addEventListener("keydown", (e) => { if (e.key === "Enter") doPair(); });
 $("search").addEventListener("input", () => { state.search = $("search").value; renderTree(); });
+document.querySelectorAll("#chips .chip").forEach((chip) => {
+  chip.onclick = () => {
+    state.scope = chip.dataset.scope;
+    document.querySelectorAll("#chips .chip").forEach((c) => c.classList.toggle("active", c === chip));
+    renderTree();
+  };
+});
 $("tree").addEventListener("click", (e) => {
-  const row = e.target.closest(".doc-row");
-  if (row) { openDoc(Number(row.dataset.id)); return; }
-  const head = e.target.closest(".dir-head");
-  if (head) {
-    const group = head.closest(".dir-group");
-    const dir = group.dataset.dir;
-    state.collapsed[dir] = !state.collapsed[dir];
+  const row = e.target.closest(".t-doc");
+  if (row) {
+    openDoc(Number(row.dataset.id));
+    if (window.innerWidth <= 767) document.body.classList.remove("drawer-open");
+    return;
+  }
+  const node = e.target.closest(".t-node");
+  if (node) {
+    const key = node.dataset.key;
+    state.collapsed[key] = !state.collapsed[key];
     renderTree();
   }
 });
@@ -716,6 +795,7 @@ $("burger").onclick = () => {
     document.body.classList.toggle("collapsed");
   }
 };
+$("drawer-close").onclick = () => document.body.classList.remove("drawer-open");
 $("scrim").onclick = () => document.body.classList.remove("drawer-open");
 
 await init();
