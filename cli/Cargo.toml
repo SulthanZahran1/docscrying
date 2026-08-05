@@ -1,0 +1,21 @@
+[package]
+name = "scry"
+version = "0.1.0"
+edition = "2021"
+license = "EUPL-1.2"
+description = "Point scry at any codebase: it indexes every doc-like file and serves a local reader site; pair any other machine with a wormhole code."
+repository = "https://github.com/SulthanZahran1/scry"
+
+[dependencies]
+async-channel = "2"
+async-io = "2"
+clap = { version = "4", features = ["derive"] }
+ctrlc = "3"
+futures-lite = "2"
+magic-wormhole = { version = "=0.8.1", features = ["native-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+webbrowser = "1"
+
+[profile.release]
+strip = true
