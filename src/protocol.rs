@@ -201,9 +201,9 @@ pub fn server_loop<P: Pipe>(mut pipe: P, index: &Index) -> Result<(), String> {
                     "size": doc.body.as_ref().map(|b| b.len() as u64),
                     "error": doc.error,
                 }))?;
-                if let Some(body) = doc.body {
-                    pipe.send_bytes(body)?;
-                }
+                // Strict framing: every get is answered by exactly one data
+                // frame followed by exactly one body record (empty on error).
+                pipe.send_bytes(doc.body.unwrap_or_default())?;
             }
             Some("bye") => break,
             _ => {
@@ -286,22 +286,32 @@ pub fn reader_loop<P: Pipe>(
             ClientRequest::Get(id) => {
                 pipe.send_json(&json!({"type": "get", "id": id}))?;
                 match serde_json::from_value::<Data>(pipe.recv_json()?) {
-                    Ok(data) if data.status == 200 => match pipe.recv_bytes() {
-                        Ok(body) => ClientResponse::Doc(GetResult::Ok {
-                            content_type: data
-                                .content_type
-                                .unwrap_or_else(|| "application/octet-stream".to_string()),
-                            size: data.size.unwrap_or(body.len() as u64),
-                            body,
-                        }),
-                        Err(e) => ClientResponse::Failed(format!("pipe closed mid-body: {e}")),
-                    },
-                    Ok(data) => ClientResponse::Doc(GetResult::Err {
-                        status: data.status,
-                        message: data
-                            .error
-                            .unwrap_or_else(|| "doc unavailable".to_string()),
-                    }),
+                    Ok(data) => {
+                        // Strict framing: exactly one body record follows
+                        // every data frame (empty for error statuses).
+                        let body = match pipe.recv_bytes() {
+                            Ok(body) => body,
+                            Err(e) => {
+                                return Err(format!("pipe closed mid-body: {e}"));
+                            }
+                        };
+                        if data.status == 200 {
+                            ClientResponse::Doc(GetResult::Ok {
+                                content_type: data
+                                    .content_type
+                                    .unwrap_or_else(|| "application/octet-stream".to_string()),
+                                size: data.size.unwrap_or(body.len() as u64),
+                                body,
+                            })
+                        } else {
+                            ClientResponse::Doc(GetResult::Err {
+                                status: data.status,
+                                message: data
+                                    .error
+                                    .unwrap_or_else(|| "doc unavailable".to_string()),
+                            })
+                        }
+                    }
                     Err(e) => ClientResponse::Failed(format!("bad data frame: {e}")),
                 }
             }
