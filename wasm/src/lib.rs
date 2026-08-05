@@ -33,6 +33,9 @@ pub fn protocol_version() -> u32 {
 /// never requests docs at or above this size.
 const MAX_DOC_SIZE: u64 = 25 * 1024 * 1024;
 
+/// Pairing deadline, matching the CLI's 60s timeout (decision #6).
+const PAIRING_TIMEOUT_MS: u32 = 60_000;
+
 const APP_ID: &str = "zahranm.cloud/scry";
 const RENDEZVOUS_URL: &str = "wss://wormhole.zahranm.cloud/v1";
 
@@ -52,6 +55,18 @@ pub fn init() {
 
 fn log(msg: &str) {
     web_sys::console::log_1(&JsValue::from_str(msg));
+}
+
+/// Wasm-safe sleep (setTimeout via js_sys; std::time::Instant/thread::sleep
+/// are unavailable on wasm32-unknown-unknown).
+async fn sleep(ms: u32) {
+    let promise = js_sys::Promise::new(&mut |resolve, _reject| {
+        web_sys::window()
+            .expect("no window")
+            .set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, ms as i32)
+            .expect("setTimeout failed");
+    });
+    let _ = wasm_bindgen_futures::JsFuture::from(promise).await;
 }
 
 fn app_config() -> AppConfig<AppVersion> {
@@ -149,10 +164,32 @@ struct DataMsg {
 /// Pair with a scry session: join the code's mailbox, run the wormhole key
 /// exchange, then complete the relay-v1 hello handshake (wait for the server
 /// hello, reply as reader, verify the version). On success the pipe is kept
-/// open for list_docs/get_doc.
+/// open for list_docs/get_doc. Bounded by a 60s deadline so an expired or
+/// mistyped code reports an error instead of hanging forever.
 #[wasm_bindgen]
 pub async fn pair(code: &str) -> Result<(), JsValue> {
-    guarded(pair_inner(code)).await
+    if BUSY.with(|b| *b.borrow()) {
+        return Err(JsValue::from_str(
+            "A request is already in flight; wait for it to finish",
+        ));
+    }
+    BUSY.with(|b| *b.borrow_mut() = true);
+    let result = match futures::future::select(
+        Box::pin(pair_inner(code)),
+        Box::pin(async {
+            sleep(PAIRING_TIMEOUT_MS).await;
+            Err::<(), JsValue>(JsValue::from_str(
+                "Pairing timed out after 60s: the code may be wrong or expired",
+            ))
+        }),
+    )
+    .await
+    {
+        futures::future::Either::Left((r, _)) => r,
+        futures::future::Either::Right((r, _)) => r,
+    };
+    BUSY.with(|b| *b.borrow_mut() = false);
+    result
 }
 
 async fn pair_inner(code: &str) -> Result<(), JsValue> {
