@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>scry reader prototype</title>
+<!--
+  Prototype: scry reader UI. Three variants of the reader surface, switchable
+  via ?v=1 / ?v=2 / ?v=3 (or the floating switcher). Throwaway design material.
+  Variant keys: 1 = IDE, 2 = Editorial, 3 = Terminal.
+-->
+<style>
+/* ============================================================
+   Tokens per variation. body.v1 / body.v2 / body.v3 swap the set.
+   One accent per variation, desaturated. No pure black/white.
+   ============================================================ */
+:root {
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  --radius: 6px;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+body.v1 {
+  --bg: #141416;
+  --panel: #1b1b1f;
+  --panel-2: #202024;
+  --border: #2a2a31;
+  --border-strong: #3a3a44;
+  --text: #d6d6db;
+  --text-dim: #8b8b95;
+  --text-faint: #5d5d66;
+  --accent: #c9973e;
+  --accent-dim: rgba(201, 151, 62, 0.14);
+  --skeleton: #232329;
+  --shadow: none;
+  --radius: 4px;
+}
+body.v1 .v-only { display: none; }
+
+body.v2 {
+  --bg: #f6f6f4;
+  --panel: #ffffff;
+  --panel-2: #fafaf8;
+  --border: #e2e2dd;
+  --border-strong: #c9c9c2;
+  --text: #232323;
+  --text-dim: #6b6b66;
+  --text-faint: #9a9a94;
+  --accent: #3e7d5f;
+  --accent-dim: rgba(62, 125, 95, 0.09);
+  --skeleton: #ecece8;
+  --shadow: 0 1px 2px rgba(20, 20, 20, 0.04);
+  --radius: 10px;
+}
+body.v2 .v-only { display: none; }
+
+body.v3 {
+  --bg: #0a0a0b;
+  --panel: #0f0f11;
+  --panel-2: #131315;
+  --border: #2c2c31;
+  --border-strong: #41414a;
+  --text: #c8c8cd;
+  --text-dim: #7d7d85;
+  --text-faint: #4e4e56;
+  --accent: #6fbf5f;
+  --accent-dim: rgba(111, 191, 95, 0.1);
+  --skeleton: #17171a;
+  --shadow: none;
+  --radius: 0px;
+}
+body.v3 .v-only { display: none; }
+
+/* ============================================================
+   Base layout
+   ============================================================ */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  height: 100vh;
+  height: 100dvh;
+}
+
+/* ============================================================
+   Header
+   ============================================================ */
+#header {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  height: 44px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+#header .repo {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#header .repo::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 2px; background: var(--accent); vertical-align: 0; }
+#header .count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+#header .spacer { flex: 1; }
+#burger {
+  display: none;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--radius);
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* ============================================================
+   Sidebar / tree
+   ============================================================ */
+#sidebar {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+}
+#search-wrap { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+#search {
+  width: 100%;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 6px 10px;
+  outline: none;
+}
+#search:focus { border-color: var(--accent); }
+#search::placeholder { color: var(--text-faint); }
+
+#tree {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 6px 24px;
+}
+.dir-group { margin-bottom: 2px; }
+.dir-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  user-select: none;
+  border-radius: var(--radius);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+}
+.dir-head:hover { color: var(--text); background: var(--accent-dim); }
+.dir-head .caret { width: 10px; color: var(--text-faint); transition: transform 0.15s var(--ease); }
+.dir-group.collapsed .caret { transform: rotate(-90deg); }
+.dir-group.collapsed .dir-children { display: none; }
+.dir-children { padding-left: 6px; }
+
+.doc-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 8px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  color: var(--text);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.doc-row:hover { background: var(--accent-dim); }
+.doc-row.active { background: var(--accent-dim); box-shadow: inset 2px 0 0 var(--accent); }
+.doc-row .name { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.doc-row .size { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-faint); }
+
+.badge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+  background: var(--panel-2);
+}
+.doc-row .name .match { background: var(--accent-dim); color: var(--accent); border-radius: 2px; }
+
+#empty-search {
+  display: none;
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+#empty-search .hint { font-family: var(--font-mono); font-size: 11px; color: var(--text-faint); margin-top: 6px; }
+#empty-search.show { display: block; }
+
+/* ============================================================
+   Reader pane
+   ============================================================ */
+#reader {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--bg);
+}
+#crumbs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--text-dim);
+  min-height: 34px;
+}
+#crumbs .seg { color: var(--text-dim); }
+#crumbs .seg.root { color: var(--text-faint); }
+#crumbs .sep { color: var(--text-faint); }
+#crumbs .seg.current { color: var(--text); }
+#crumbs .doc-meta {
+  margin-left: auto;
+  display: flex;
+  gap: 10px;
+  color: var(--text-faint);
+  font-size: 10.5px;
+}
+
+#content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 28px 32px 64px;
+}
+#content .empty {
+  max-width: 460px;
+  margin: 12vh auto 0;
+  text-align: center;
+  color: var(--text-dim);
+}
+#content .empty h2 { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+#content .empty p { font-size: 13px; }
+#content .empty .code { font-family: var(--font-mono); color: var(--accent); }
+
+.doc-view { max-width: 760px; margin: 0 auto; }
+.doc-view h1 { font-size: 24px; font-weight: 650; letter-spacing: -0.01em; margin-bottom: 4px; }
+.doc-view .doc-sub {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  padding-bottom: 18px;
+  margin-bottom: 22px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* markdown rendering */
+.md h1 { font-size: 22px; font-weight: 650; margin: 28px 0 10px; letter-spacing: -0.01em; }
+.md h1:first-child { margin-top: 0; }
+.md h2 { font-size: 17px; font-weight: 650; margin: 24px 0 8px; }
+.md h3 { font-size: 14.5px; font-weight: 600; margin: 18px 0 6px; }
+.md p { margin: 0 0 12px; }
+.md ul, .md ol { margin: 0 0 12px; padding-left: 22px; }
+.md li { margin: 3px 0; }
+.md code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+.md pre {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  overflow-x: auto;
+  margin: 0 0 14px;
+}
+.md pre code { background: none; border: none; padding: 0; font-size: 12px; line-height: 1.6; }
+.md blockquote {
+  border-left: 3px solid var(--accent);
+  padding: 2px 0 2px 14px;
+  margin: 0 0 12px;
+  color: var(--text-dim);
+}
+.md hr { border: none; border-top: 1px solid var(--border); margin: 22px 0; }
+.md a { color: var(--accent); text-decoration: none; }
+.md a:hover { text-decoration: underline; }
+.md table { border-collapse: collapse; margin: 0 0 14px; font-size: 13px; width: 100%; }
+.md th, .md td { border: 1px solid var(--border); padding: 5px 10px; text-align: left; }
+.md th { background: var(--panel); font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+
+/* plain text docs */
+.plain {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.7;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+/* html doc */
+.html-frame {
+  width: 100%;
+  height: 68vh;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: #ffffff;
+}
+
+/* binary / findable-not-rendered */
+.bin-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  padding: 28px;
+  max-width: 420px;
+  margin: 8vh auto 0;
+  text-align: center;
+}
+.bin-card .bin-kind {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  border: 1px solid var(--border-strong);
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 3px;
+  margin-bottom: 14px;
+}
+.bin-card .bin-name { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+.bin-card .bin-note { font-size: 12.5px; color: var(--text-dim); margin-bottom: 18px; }
+.bin-card .bin-meta { font-family: var(--font-mono); font-size: 11px; color: var(--text-faint); margin-bottom: 18px; }
+#download-mock {
+  background: var(--accent);
+  color: var(--bg);
+  border: none;
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 18px;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+}
+#download-mock:active { transform: scale(0.98); }
+
+/* skeleton loading */
+.skeleton .sk-line { height: 12px; border-radius: 3px; background: var(--skeleton); margin-bottom: 10px; }
+.skeleton .sk-line.w40 { width: 40%; }
+.skeleton .sk-line.w70 { width: 70%; }
+.skeleton .sk-line.w90 { width: 90%; }
+.skeleton .sk-line.w55 { width: 55%; }
+
+/* ============================================================
+   Variant switcher (floating bottom bar)
+   ============================================================ */
+#switcher {
+  position: fixed;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+  padding: 4px;
+  z-index: 100;
+}
+#switcher button {
+  background: none;
+  border: none;
+  border-radius: 999px;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 5px 12px;
+  cursor: pointer;
+  letter-spacing: 0.03em;
+  transition: background 0.15s var(--ease), color 0.15s var(--ease);
+}
+#switcher button:hover { color: var(--text); }
+#switcher button.on { background: var(--accent); color: var(--bg); font-weight: 600; }
+#switcher .sw-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-faint);
+  padding: 0 8px;
+  letter-spacing: 0.06em;
+}
+
+/* ============================================================
+   Mobile collapse
+   ============================================================ */
+#scrim { display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); z-index: 40; }
+
+@media (max-width: 767px) {
+  #app { grid-template-columns: 1fr; }
+  #burger { display: inline-block; }
+  #header { height: 48px; }
+  #sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: min(320px, 84vw);
+    z-index: 50;
+    transform: translateX(-102%);
+    transition: transform 0.22s var(--ease);
+    box-shadow: 8px 0 32px rgba(0, 0, 0, 0.3);
+  }
+  body.drawer-open #sidebar { transform: translateX(0); }
+  body.drawer-open #scrim { display: block; }
+  #content { padding: 20px 18px 80px; }
+  #crumbs { padding: 8px 12px; }
+  #crumbs .doc-meta { display: none; }
+  #switcher { bottom: 10px; }
+  #switcher .sw-label { display: none; }
+}
+
+/* ============================================================
+   Variation-specific structure
+   ============================================================ */
+
+/* v1 IDE: dense, header + statusbar, tight spacing */
+body.v1 #content { padding: 24px 28px 56px; }
+body.v1 #statusbar {
+  grid-column: 1 / -1;
+  height: 26px;
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 0 14px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-faint);
+}
+body.v1 #statusbar .sb-accent { color: var(--accent); }
+body.v1 #app { grid-template-rows: 44px 1fr 26px; }
+body.v1 #switcher { bottom: 48px; }
+body.v1 #statusbar .sb-accent { color: var(--accent); }
+
+/* v2 Editorial: reader-first, centered column, slim rail */
+body.v2 #app { grid-template-columns: 280px 1fr; }
+body.v2 #sidebar { background: transparent; }
+body.v2 #reader { background: var(--panel); }
+body.v2 #crumbs {
+  background: transparent;
+  border-bottom: 1px solid var(--border);
+  padding: 14px 32px;
+  min-height: 46px;
+  font-size: 12px;
+}
+body.v2 .doc-view { max-width: 700px; }
+body.v2 #content { padding: 44px 48px 72px; }
+body.v2 .doc-view h1 { font-size: 28px; font-weight: 600; }
+body.v2 .doc-view .doc-sub { padding-bottom: 20px; margin-bottom: 28px; }
+body.v2 .dir-head { letter-spacing: 0.08em; font-size: 10.5px; }
+body.v2 .doc-row { padding: 5px 10px; }
+body.v2 #search-wrap { padding: 14px 12px; }
+body.v2 #tree { padding: 10px 8px 24px; }
+
+/* v3 Terminal: mono everything, hard borders, blocky */
+body.v3 { font-family: var(--font-mono); }
+body.v3 #app { grid-template-columns: 300px 1fr; }
+body.v3 #header { height: 40px; border-bottom: 1px solid var(--border-strong); }
+body.v3 #header .repo::before { border-radius: 0; }
+body.v3 #search { border-radius: 0; }
+body.v3 .dir-head { border: 1px solid var(--border); border-radius: 0; margin: 4px 2px; padding: 3px 6px; }
+body.v3 .doc-row { border-radius: 0; border: 1px solid transparent; padding: 2px 6px; }
+body.v3 .doc-row:hover { border-color: var(--accent); }
+body.v3 .doc-row.active { border-color: var(--accent); box-shadow: none; background: var(--accent-dim); }
+body.v3 .badge { border-radius: 0; }
+body.v3 .md pre, body.v3 .plain, body.v3 .html-frame { border-radius: 0; }
+body.v3 .md code { border-radius: 0; }
+body.v3 #crumbs { border-bottom: 1px solid var(--border-strong); }
+body.v3 .doc-view h1 { font-size: 20px; text-transform: uppercase; letter-spacing: 0.04em; }
+body.v3 .doc-sub { border-bottom: 1px solid var(--border-strong); }
+body.v3 #content { padding: 24px 28px 56px; }
+body.v3 .bin-card { border-radius: 0; }
+body.v3 #statusbar {
+  grid-column: 1 / -1;
+  height: 24px;
+  border-top: 1px solid var(--border-strong);
+  background: var(--panel);
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 0 12px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-dim);
+}
+body.v3 #statusbar .sb-accent { color: var(--accent); }
+body.v3 #app { grid-template-rows: 40px 1fr 24px; }
+body.v3 #switcher { bottom: 46px; }
+</style>
+</head>
+<body class="v1">
+
+<div id="app">
+  <header id="header">
+    <button id="burger" aria-label="Toggle tree">TREE</button>
+    <span class="repo">~/work/nebula-rt</span>
+    <span class="count" id="header-count"></span>
+    <span class="spacer"></span>
+    <span class="count" id="pairing-note"></span>
+  </header>
+
+  <aside id="sidebar">
+    <div id="search-wrap">
+      <input id="search" type="text" placeholder="filter by filename" autocomplete="off" spellcheck="false">
+    </div>
+    <nav id="tree" aria-label="Document tree"></nav>
+    <div id="empty-search">
+      <div>No docs match</div>
+      <div class="hint" id="empty-search-term"></div>
+    </div>
+  </aside>
+
+  <main id="reader">
+    <div id="crumbs"></div>
+    <div id="content">
+      <div class="empty">
+        <h2>Nothing open</h2>
+        <p>Pick a doc from the tree. The reader renders markdown and html inline, shows plain text for rst/adoc/txt, and lists pdf/docx as downloadable files.</p>
+      </div>
+    </div>
+  </main>
+
+  <div id="statusbar">
+    <span id="sb-docs"></span>
+    <span id="sb-selected"></span>
+    <span class="spacer" style="flex:1"></span>
+    <span id="sb-code"></span>
+    <span class="sb-accent" id="sb-paired"></span>
+  </div>
+</div>
+
+<div id="scrim"></div>
+
+<div id="switcher" role="group" aria-label="Prototype variants">
+  <button data-v="1" class="on">1 IDE</button>
+  <button data-v="2">2 Editorial</button>
+  <button data-v="3">3 Terminal</button>
+  <span class="sw-label">prototype</span>
+</div>
+
+<script>
+"use strict";
+/* ------------------------------------------------------------------
+   Mock corpus. The tree shape matches relay-v1: a flat list of docs,
+   each {id, path, kind, size, mtime}. The client builds hierarchy.
+   ------------------------------------------------------------------ */
+var DOCS = [
+  { id: 1,  path: "README.md",                kind: "md",    size: 8421,  mtime: "2026-07-28 14:32" },
+  { id: 2,  path: "README",                   kind: "readme",size: 2310,  mtime: "2026-07-21 09:04" },
+  { id: 3,  path: "CONTRIBUTING.md",          kind: "md",    size: 11840, mtime: "2026-07-19 17:41" },
+  { id: 4,  path: "LICENSE.txt",              kind: "txt",   size: 1123,  mtime: "2026-06-02 11:12" },
+  { id: 5,  path: "docs/index.html",          kind: "html",  size: 6894,  mtime: "2026-07-30 10:20" },
+  { id: 6,  path: "docs/api.html",            kind: "html",  size: 15402, mtime: "2026-07-30 10:21" },
+  { id: 7,  path: "docs/architecture.md",     kind: "md",    size: 9327,  mtime: "2026-07-25 08:15" },
+  { id: 8,  path: "docs/operations.md",       kind: "md",    size: 5118,  mtime: "2026-07-22 13:50" },
+  { id: 9,  path: "docs/manual.adoc",         kind: "adoc",  size: 20763, mtime: "2026-07-17 15:33" },
+  { id: 10, path: "docs/changelog.adoc",      kind: "adoc",  size: 8477,  mtime: "2026-07-15 09:00" },
+  { id: 11, path: "notes/meeting-notes.rst",  kind: "rst",   size: 4421,  mtime: "2026-07-24 16:48" },
+  { id: 12, path: "notes/decisions.rst",      kind: "rst",   size: 3190,  mtime: "2026-07-11 10:05" },
+  { id: 13, path: "spec/spec.pdf",            kind: "pdf",   size: 248310,mtime: "2026-06-28 12:00" },
+  { id: 14, path: "report/quarterly.docx",    kind: "docx",  size: 88320, mtime: "2026-07-01 09:30" },
+  { id: 15, path: "src/README.md",            kind: "md",    size: 1562,  mtime: "2026-07-20 11:22" },
+  { id: 16, path: "src/core/README.md",       kind: "md",    size: 2048,  mtime: "2026-07-18 14:00" },
+  { id: 17, path: "scripts/migrate.txt",      kind: "txt",   size: 875,   mtime: "2026-07-09 08:45" },
+  { id: 18, path: "deploy/README",            kind: "readme",size: 1430,  mtime: "2026-07-26 19:12" },
+  { id: 19, path: "docs/guides/quickstart.md",kind: "md",    size: 6234,  mtime: "2026-07-27 10:30" },
+  { id: 20, path: "docs/guides/faq.md",       kind: "md",    size: 3911,  mtime: "2026-07-27 10:31" }
+];
+
+var CONTENT = {
+  1: { body: "# nebula-rt\n\nRealtime control runtime for the Nebula sensor grid. Reads telemetry from field nodes over UDP, applies the control pipeline, and writes setpoints back at 100 Hz.\n\n## Build\n\n```\nmake build\n./target/release/nebula-rt --config config/rt.toml\n```\n\n## Layout\n\n- `src/` - runtime sources (see `src/README.md`)\n- `docs/` - architecture and operations (see `docs/architecture.md`)\n- `spec/` - field protocol specification\n\n## Status\n\nOperational on the lab cluster since 2026-06. See `docs/operations.md` for runbooks and `docs/changelog.adoc` for the version history.", type: "md" },
+  2: { body: "NEBULA-RT\n=========\n\nUnofficial root readme. The maintained one lives in README.md next to this file.\n\nQuick facts:\n- binary: nebula-rt\n- control loop: 100 Hz fixed step\n- config: TOML under config/\n- logs: journald, unit nebula-rt.service\n", type: "plain" },
+  3: { body: "# Contributing\n\n## Process\n\n1. Open an issue describing the change before starting work.\n2. Branch from main: `feat/<name>` or `fix/<name>`.\n3. Run `make lint && make test` before opening a PR.\n4. Two approvals required. The second reviewer must not be the author.\n\n## Code style\n\nrustfmt with the project profile. `use` statements sorted, no wildcard imports.\n\n## Docs\n\nEvery feature that changes observable behavior updates `docs/changelog.adoc` in the same PR.\n", type: "md" },
+  5: { body: "<!doctype html><html><head><meta charset=\"utf-8\"><title>nebula-rt docs index</title><style>body{font-family:system-ui,sans-serif;max-width:640px;margin:48px auto;padding:0 24px;color:#222;line-height:1.6}h1{font-size:20px}ul{line-height:2}.mono{font-family:monospace;font-size:13px}</style></head><body><h1>nebula-rt documentation</h1><p class=\"mono\">~/work/nebula-rt/docs</p><ul><li><a href=\"api.html\">api.html</a> - HTTP control API reference</li><li><a href=\"architecture.md\">architecture.md</a> - pipeline and thread model</li><li><a href=\"operations.md\">operations.md</a> - runbooks</li><li><a href=\"manual.adoc\">manual.adoc</a> - operator manual</li><li><a href=\"guides/quickstart.md\">guides/quickstart.md</a> - first run in 10 minutes</li></ul></body></html>", type: "html" },
+  6: { body: "<!doctype html><html><head><meta charset=\"utf-8\"><title>HTTP control API</title><style>body{font-family:system-ui,sans-serif;max-width:680px;margin:48px auto;padding:0 24px;color:#222;line-height:1.6}h1{font-size:20px}table{border-collapse:collapse;width:100%;margin-top:16px}th,td{border:1px solid #ccc;padding:6px 10px;text-align:left;font-size:14px}th{background:#f4f4f4}code{background:#f2f2f2;padding:1px 5px;border-radius:3px;font-size:13px}</style></head><body><h1>HTTP control API</h1><p>Read-only status endpoints. Setpoints go over the UDP control channel, not HTTP.</p><table><tr><th>Method</th><th>Path</th><th>Description</th></tr><tr><td>GET</td><td><code>/v1/status</code></td><td>Loop health, step time, last tick</td></tr><tr><td>GET</td><td><code>/v1/nodes</code></td><td>Registered field nodes</td></tr><tr><td>GET</td><td><code>/v1/nodes/{id}</code></td><td>Per-node telemetry snapshot</td></tr><tr><td>GET</td><td><code>/v1/alarms</code></td><td>Active alarms, newest first</td></tr></table><h2>Example</h2><pre>curl -s localhost:9090/v1/status\n{\"loop\":\"running\",\"step_ms\":10.0,\"last_tick\":\"2026-07-30T10:21:00Z\"}</pre></body></html>", type: "html" },
+  7: { body: "# Architecture\n\n## Pipeline\n\nTelemetry flows through five stages, each on its own thread, connected by bounded channels:\n\n1. `ingest` - UDP receive, timestamp, drop out-of-order\n2. `validate` - schema check, range check, unit conversion\n3. `control` - 100 Hz fixed-step loop, priority-ordered controllers\n4. `actuate` - setpoint fan-out to field nodes\n5. `log` - ring buffer, periodic snapshot to disk\n\n## Thread model\n\n| Thread | Role | Priority |\n|---|---|---|\n| ingest | receive + parse | high |\n| control | fixed-step loop | realtime (SCHED_FIFO) |\n| http | status API | normal |\n| persist | snapshot writer | low |\n\n## Failure policy\n\nA stage that misses its deadline for 5 consecutive ticks drops to `degraded` and the alarm path fires. The control stage never blocks on I/O; setpoint writes are fire-and-forget with ack tracking.\n\n## Data flow diagram\n\n```\nfield nodes --UDP--> ingest -> validate -> control -> actuate --UDP--> field nodes\n                                    |\n                                    v\n                                  log -> disk\n```", type: "md" },
+  8: { body: "# Operations\n\n## Runbooks\n\n### Loop not stepping\n\n1. `systemctl status nebula-rt`\n2. `journalctl -u nebula-rt -n 50`\n3. Check `curl -s localhost:9090/v1/status` for `loop` field\n4. Restart: `systemctl restart nebula-rt`\n\n### Field node offline\n\n- Node reappears in `/v1/nodes` within 3 seconds of its last heartbeat.\n- Missing for 10 seconds: alarm `NODE_OFFLINE`.\n- Missing for 60 seconds: node evicted, setpoints to it are dropped.\n\n## Metrics\n\n- `nebula_loop_step_ms` histogram, P95 target under 9.5 ms\n- `nebula_nodes_online` gauge\n- `nebula_alarms_active` gauge", type: "md" },
+  9: { body: "= nebula-rt operator manual\n\n== Startup\n\nStart the service, then verify the loop is stepping:\n\n  systemctl start nebula-rt\n  curl -s localhost:9090/v1/status\n\n== Daily checks\n\n- P95 step time under 9.5 ms\n- No alarms older than 24 h\n- Snapshot disk usage under 80%\n\n== Shutdown\n\nGraceful stop drains the log ring buffer before exit. Allow 10 seconds.\n\n(Full text continues past the mock cut.)", type: "plain" },
+  10: { body: "= Changelog\n\n== 2026-07\n\n- 0.9.2: persist thread backpressure fix\n- 0.9.1: alarm dedupe, NODE_OFFLINE hysteresis\n- 0.9.0: HTTP status API, /v1/status\n\n== 2026-06\n\n- 0.8.1: UDP ingest jitter buffer\n- 0.8.0: first lab deployment", type: "plain" },
+  11: { body: "Meeting notes - 2026-07-24\n===========================\n\nAttendees: control team, ops\n\n- Decision: keep the 100 Hz step for v1. No dynamic rate.\n- Action: ops to publish the runbook page for NODE_OFFLINE.\n- Risk: SCHED_FIFO priority on shared cores, revisit with cpuset pinning.\n- Next: 2026-08-07.", type: "plain" },
+  12: { body: "Decision records\n================\n\n- 0007: UDP-only telemetry path. No TCP fallback in v1.\n- 0008: Setpoint ack tracking in the actuate stage, retry twice.\n- 0009: Log ring buffer 60 seconds, snapshot every 30.\n\nEach record links to the PR that implemented it.", type: "plain" },
+  13: { body: "Field protocol specification, revision 2.3. Covers the UDP frame layout, checksums, node registration, and the setpoint message types. Rendered from spec/src/main.tex. Not previewable inline; download to read.", type: "plain" },
+  14: { body: "Quarterly engineering report, Q2 2026. Control loop latency, node coverage, alarm counts, and the roadmap for Q3. Generated from report/quarterly.qmd. Not previewable inline; download to read.", type: "plain" },
+  15: { body: "# src\n\nRuntime sources.\n\n- `main.rs` - entry, config load, signal handling\n- `ingest/` - UDP receive path\n- `control/` - the fixed-step loop and controllers\n- `actuate/` - setpoint fan-out\n- `http/` - status API server\n- `log/` - ring buffer and snapshot writer\n\nSee `src/core/README.md` for the control core.\n", type: "md" },
+  16: { body: "# core\n\nThe control core. Fixed-step loop with priority-ordered controllers.\n\n- `loop.rs` - the step loop, deadline tracking\n- `controllers/` - PID, feedforward, and guard controllers\n- `state.rs` - shared state, lock-free reads\n\nRule: no blocking I/O inside the step. Ever.\n", type: "md" },
+  17: { body: "migrate.txt\n===========\n\nMigration helper notes for the config schema v2 move.\n\nUsage:\n    python3 scripts/migrate.py config/rt.toml\n\nConverts rate fields from milliseconds to microseconds and renames `loop.window` to `control.window`. Backs up the input to .bak before writing.", type: "plain" },
+  18: { body: "DEPLOY README\n=============\n\nDeployment notes for the lab cluster.\n\n- unit file: deploy/nebula-rt.service\n- config: deploy/rt.toml.example\n- image: ghcr.io/nebula-rt/nebula-rt:0.9.2\n\nSee docs/operations.md for runbooks.", type: "plain" },
+  19: { body: "# Quickstart\n\nGet a node reading and a setpoint flowing in 10 minutes.\n\n## 1. Install\n\n```\nmake build\nsudo make install\n```\n\n## 2. Configure\n\n```\ncp deploy/rt.toml.example config/rt.toml\n# set bind port and node list\n```\n\n## 3. Run\n\n```\nsystemctl start nebula-rt\ncurl -s localhost:9090/v1/status\n```\n\nYou should see `\"loop\":\"running\"` and a step time under 10 ms.\n", type: "md" },
+  20: { body: "# FAQ\n\n## The loop is running but no nodes appear\n\nCheck the UDP port matches the config, and that field nodes point at the right address. `journalctl -u nebula-rt -n 30` shows ingest drops.\n\n## Can I change the step rate?\n\nThe step rate is fixed at 100 Hz in v1. See decision record 0007.\n\n## Where do alarms go?\n\nAlarms are written to journald and exposed at `/v1/alarms`. A webhook sink is planned.\n", type: "md" }
+};
+
+/* ------------------------------------------------------------------
+   State
+   ------------------------------------------------------------------ */
+var state = {
+  selected: null,      // doc id or null
+  search: "",
+  collapsed: {},       // dir path -> bool
+  loading: false
+};
+
+/* ------------------------------------------------------------------
+   Helpers
+   ------------------------------------------------------------------ */
+function fmtSize(n) {
+  if (n >= 1048576) return (n / 1048576).toFixed(1) + " MB";
+  if (n >= 1024) return (n / 1024).toFixed(1) + " KB";
+  return n + " B";
+}
+function dirOf(path) {
+  var i = path.lastIndexOf("/");
+  return i === -1 ? "." : path.slice(0, i);
+}
+function baseOf(path) {
+  var i = path.lastIndexOf("/");
+  return i === -1 ? path : path.slice(i + 1);
+}
+function escapeHtml(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+}
+function badge(kind) {
+  return '<span class="badge">' + kind + "</span>";
+}
+
+/* ------------------------------------------------------------------
+   Tree rendering
+   ------------------------------------------------------------------ */
+function groupDocs(docs) {
+  var groups = {};
+  docs.forEach(function (d) {
+    var dir = dirOf(d.path);
+    (groups[dir] = groups[dir] || []).push(d);
+  });
+  var order = Object.keys(groups).sort(function (a, b) {
+    if (a === ".") return -1;
+    if (b === ".") return 1;
+    return a < b ? -1 : 1;
+  });
+  return order.map(function (dir) { return { dir: dir, docs: groups[dir] }; });
+}
+
+function highlight(name) {
+  var q = state.search.trim();
+  if (!q) return escapeHtml(name);
+  var idx = name.toLowerCase().indexOf(q.toLowerCase());
+  if (idx === -1) return escapeHtml(name);
+  return escapeHtml(name.slice(0, idx)) +
+    '<span class="match">' + escapeHtml(name.slice(idx, idx + q.length)) + "</span>" +
+    escapeHtml(name.slice(idx + q.length));
+}
+
+function renderTree() {
+  var tree = document.getElementById("tree");
+  var empty = document.getElementById("empty-search");
+  var q = state.search.trim();
+  var list;
+
+  if (q) {
+    list = DOCS.filter(function (d) { return baseOf(d.path).toLowerCase().indexOf(q.toLowerCase()) !== -1; });
+  } else {
+    list = DOCS;
+  }
+
+  if (list.length === 0) {
+    tree.innerHTML = "";
+    empty.querySelector("#empty-search-term").textContent = 'no doc filename contains "' + q + '"';
+    empty.classList.add("show");
+    return;
+  }
+  empty.classList.remove("show");
+
+  var html = "";
+  if (q) {
+    // flat results, no grouping, sorted by path
+    list.slice().sort(function (a, b) { return a.path < b.path ? -1 : 1; }).forEach(function (d) {
+      html += '<div class="doc-row' + (state.selected === d.id ? " active" : "") +
+        '" data-id="' + d.id + '">' +
+        badge(d.kind) +
+        '<span class="name">' + highlight(baseOf(d.path)) + "</span>" +
+        '<span class="size">' + fmtSize(d.size) + "</span></div>";
+    });
+  } else {
+    groupDocs(list).forEach(function (g) {
+      var collapsed = !!state.collapsed[g.dir];
+      html += '<div class="dir-group' + (collapsed ? " collapsed" : "") + '" data-dir="' + escapeHtml(g.dir) + '">' +
+        '<div class="dir-head"><span class="caret">&#9662;</span>' + (g.dir === "." ? "root" : escapeHtml(g.dir)) + "</div>" +
+        '<div class="dir-children">';
+      g.docs.forEach(function (d) {
+        html += '<div class="doc-row' + (state.selected === d.id ? " active" : "") +
+          '" data-id="' + d.id + '">' +
+          badge(d.kind) +
+          '<span class="name">' + escapeHtml(baseOf(d.path)) + "</span>" +
+          '<span class="size">' + fmtSize(d.size) + "</span></div>";
+      });
+      html += "</div></div>";
+    });
+  }
+  tree.innerHTML = html;
+}
+
+function updateHeaderCount() {
+  document.getElementById("header-count").textContent = DOCS.length + " docs, " + fmtSize(DOCS.reduce(function (a, d) { return a + d.size; }, 0));
+  document.getElementById("sb-docs").textContent = DOCS.length + " docs indexed";
+  document.getElementById("sb-code").textContent = "code 7-crossover-clockwork";
+}
+
+/* ------------------------------------------------------------------
+   Reader rendering
+   ------------------------------------------------------------------ */
+function renderMarkdown(src) {
+  var lines = src.replace(/\r\n/g, "\n").split("\n");
+  var html = "";
+  var inPre = false, inList = false, inQuote = false, listType = "ul";
+  var i = 0;
+
+  function closeList() {
+    if (inList) { html += "</" + listType + ">"; inList = false; }
+  }
+  function closeQuote() {
+    if (inQuote) { html += "</blockquote>"; inQuote = false; }
+  }
+
+  for (i = 0; i < lines.length; i++) {
+    var line = lines[i];
+    var t = line.trim();
+
+    if (t.startsWith("```")) {
+      closeList(); closeQuote();
+      if (inPre) { html += "</code></pre>"; inPre = false; }
+      else { html += "<pre><code>"; inPre = true; }
+      continue;
+    }
+    if (inPre) { html += escapeHtml(line) + "\n"; continue; }
+
+    if (!t) { closeList(); closeQuote(); html += "\n"; continue; }
+
+    if (t.startsWith("### ")) { closeList(); closeQuote(); html += "<h3>" + inline(t.slice(4)) + "</h3>"; continue; }
+    if (t.startsWith("## ")) { closeList(); closeQuote(); html += "<h2>" + inline(t.slice(3)) + "</h2>"; continue; }
+    if (t.startsWith("# ")) { closeList(); closeQuote(); html += "<h1>" + inline(t.slice(2)) + "</h1>"; continue; }
+    if (t.startsWith("> ")) { closeList(); if (!inQuote) { html += "<blockquote>"; inQuote = true; } html += "<p>" + inline(t.slice(2)) + "</p>"; continue; }
+    if (/^[-*] /.test(t)) {
+      closeQuote();
+      if (!inList || listType !== "ul") { closeList(); html += "<ul>"; inList = true; listType = "ul"; }
+      html += "<li>" + inline(t.replace(/^[-*] /, "")) + "</li>"; continue;
+    }
+    if (/^\d+\. /.test(t)) {
+      closeQuote();
+      if (!inList || listType !== "ol") { closeList(); html += "<ol>"; inList = true; listType = "ol"; }
+      html += "<li>" + inline(t.replace(/^\d+\. /, "")) + "</li>"; continue;
+    }
+    if (/^-{3,}$/.test(t)) { closeList(); closeQuote(); html += "<hr>"; continue; }
+    if (t.startsWith("|")) {
+      closeList(); closeQuote();
+      var cells = t.split("|").slice(1, -1).map(function (c) { return c.trim(); });
+      var isHeader = cells.every(function (c) { return /^:?-{2,}:?$/.test(c); });
+      if (isHeader) continue;
+      html += "<tr>" + cells.map(function (c) { return "<td>" + inline(c) + "</td>"; }).join("") + "</tr>";
+      continue;
+    }
+    closeList(); closeQuote();
+    html += "<p>" + inline(t) + "</p>";
+  }
+  closeList(); closeQuote();
+  if (inPre) html += "</code></pre>";
+  return html;
+}
+
+function inline(s) {
+  return escapeHtml(s)
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*([^*]+)\*/g, "<em>$1</em>")
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+}
+
+function renderDoc(d) {
+  var view = document.createElement("div");
+  view.className = "doc-view";
+  var body = CONTENT[d.id] ? CONTENT[d.id].body : "";
+  var type = CONTENT[d.id] ? CONTENT[d.id].type : "plain";
+
+  var sub = '<div class="doc-sub">' + badge(d.kind) +
+    '<span>doc ' + d.id + "</span>" +
+    "<span>" + fmtSize(d.size) + "</span>" +
+    "<span>" + d.mtime + "</span></div>";
+
+  var inner = "";
+  if (type === "md") {
+    inner = '<h1>' + escapeHtml(baseOf(d.path)) + "</h1>" + sub + '<div class="md">' + renderMarkdown(body) + "</div>";
+  } else if (type === "html") {
+    inner = '<h1>' + escapeHtml(baseOf(d.path)) + "</h1>" + sub +
+      '<iframe class="html-frame" title="' + escapeHtml(baseOf(d.path)) + '" srcdoc="' + escapeHtml(body).replace(/"/g, "&quot;") + '"></iframe>';
+  } else if (d.kind === "pdf" || d.kind === "docx") {
+    inner = '<div class="bin-card"><div class="bin-kind">' + d.kind + "</div>" +
+      '<div class="bin-name">' + escapeHtml(baseOf(d.path)) + "</div>" +
+      '<div class="bin-note">Not previewable inline. Download to read.</div>' +
+      '<div class="bin-meta">' + fmtSize(d.size) + " / " + d.mtime + " / doc " + d.id + "</div>" +
+      '<button id="download-mock">Download</button></div>';
+  } else {
+    inner = '<h1>' + escapeHtml(baseOf(d.path)) + "</h1>" + sub +
+      '<div class="plain">' + escapeHtml(body) + "</div>";
+  }
+
+  view.innerHTML = inner;
+  return view;
+}
+
+function renderSkeleton() {
+  var el = document.createElement("div");
+  el.className = "doc-view skeleton";
+  el.innerHTML = '<div class="sk-line w40"></div><div class="sk-line w70"></div>' +
+    '<div class="sk-line w90"></div><div class="sk-line w55"></div>' +
+    '<div class="sk-line w90"></div><div class="sk-line w70"></div>';
+  return el;
+}
+
+function updateCrumbs(d) {
+  var crumbs = document.getElementById("crumbs");
+  var segs = d.path.split("/");
+  var html = '<span class="seg root">nebula-rt</span>';
+  segs.forEach(function (s, i) {
+    html += '<span class="sep">/</span>';
+    html += i === segs.length - 1
+      ? '<span class="seg current">' + escapeHtml(s) + "</span>"
+      : '<span class="seg">' + escapeHtml(s) + "</span>";
+  });
+  html += '<span class="doc-meta"><span>' + badge(d.kind) + "</span>" +
+    "<span>" + fmtSize(d.size) + "</span><span>" + d.mtime + "</span></span>";
+  crumbs.innerHTML = html;
+  document.getElementById("sb-selected").textContent = baseOf(d.path);
+}
+
+function selectDoc(id) {
+  var d = DOCS.find(function (x) { return x.id === id; });
+  if (!d || state.loading) return;
+  state.selected = id;
+  state.loading = true;
+
+  renderTree();
+  updateCrumbs(d);
+
+  var content = document.getElementById("content");
+  content.innerHTML = "";
+  content.appendChild(renderSkeleton());
+
+  setTimeout(function () {
+    state.loading = false;
+    content.innerHTML = "";
+    content.appendChild(renderDoc(d));
+  }, 200);
+}
+
+/* ------------------------------------------------------------------
+   Events
+   ------------------------------------------------------------------ */
+document.getElementById("tree").addEventListener("click", function (e) {
+  var head = e.target.closest(".dir-head");
+  if (head) {
+    var dir = head.parentElement.getAttribute("data-dir");
+    state.collapsed[dir] = !state.collapsed[dir];
+    renderTree();
+    return;
+  }
+  var row = e.target.closest(".doc-row");
+  if (row) selectDoc(parseInt(row.getAttribute("data-id"), 10));
+});
+
+document.getElementById("search").addEventListener("input", function (e) {
+  state.search = e.target.value;
+  renderTree();
+});
+
+document.getElementById("search").addEventListener("keydown", function (e) {
+  if (e.key === "Escape") { e.target.value = ""; state.search = ""; renderTree(); }
+});
+
+document.getElementById("burger").addEventListener("click", function () {
+  document.body.classList.toggle("drawer-open");
+});
+document.getElementById("scrim").addEventListener("click", function () {
+  document.body.classList.remove("drawer-open");
+});
+
+/* ------------------------------------------------------------------
+   Variant switcher
+   ------------------------------------------------------------------ */
+var VARIANTS = { 1: "IDE", 2: "Editorial", 3: "Terminal" };
+
+function currentVariant() {
+  var p = new URLSearchParams(location.search).get("v");
+  if (p && VARIANTS[p]) return p;
+  var saved = localStorage.getItem("scry-proto-variant");
+  if (saved && VARIANTS[saved]) return saved;
+  return "1";
+}
+
+function applyVariant(v) {
+  document.body.className = "v" + v;
+  document.querySelectorAll("#switcher button").forEach(function (b) {
+    b.classList.toggle("on", b.getAttribute("data-v") === v);
+  });
+  var p = new URLSearchParams(location.search);
+  p.set("v", v);
+  history.replaceState(null, "", "?" + p.toString());
+  localStorage.setItem("scry-proto-variant", v);
+}
+
+document.getElementById("switcher").addEventListener("click", function (e) {
+  var b = e.target.closest("button[data-v]");
+  if (b) applyVariant(b.getAttribute("data-v"));
+});
+
+document.addEventListener("keydown", function (e) {
+  var tag = (e.target.tagName || "").toLowerCase();
+  if (tag === "input" || tag === "textarea" || e.target.isContentEditable) return;
+  if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+  var keys = ["1", "2", "3"];
+  var idx = keys.indexOf(currentVariant());
+  var next = e.key === "ArrowRight" ? (idx + 1) % 3 : (idx + 2) % 3;
+  applyVariant(keys[next]);
+});
+
+/* ------------------------------------------------------------------
+   Init
+   ------------------------------------------------------------------ */
+applyVariant(currentVariant());
+updateHeaderCount();
+renderTree();
+// open the root README so the reader is not empty on first load
+selectDoc(1);
+</script>
+</body>
+</html>
