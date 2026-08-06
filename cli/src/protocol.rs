@@ -403,7 +403,7 @@ mod tests {
     }
 
     fn temp_corpus() -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("scry-protocol-test-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("docscrying-protocol-test-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(dir.join("docs")).unwrap();
         fs::write(dir.join("README.md"), "# hi\n\nbody text\n").unwrap();

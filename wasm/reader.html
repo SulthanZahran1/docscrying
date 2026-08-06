@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>scry</title>
+<title>docscrying</title>
 <style>
 :root {
   --bg: #0e0e10;
@@ -457,7 +457,7 @@ body.collapsed #sidebar { visibility: hidden; }
 
 <div id="pair-view">
   <div id="pair-card">
-    <h1>scry</h1>
+    <h1>docscrying</h1>
     <p class="sub">Enter the pairing code from the box serving the docs</p>
     <input id="pair-input" type="text" placeholder="7-crossover-clockwork" autocomplete="off" spellcheck="false">
     <button id="pair-btn">pair</button>
@@ -468,7 +468,7 @@ body.collapsed #sidebar { visibility: hidden; }
 <div id="app">
   <header id="header">
     <button id="burger" aria-label="Toggle tree">TREE</button>
-    <span class="wordmark">scry</span>
+    <span class="wordmark">docscrying</span>
     <span class="repo" id="header-repo"></span>
     <span class="count" id="header-count"></span>
     <span class="spacer"></span>
@@ -510,7 +510,7 @@ body.collapsed #sidebar { visibility: hidden; }
 <div id="scrim"></div>
 
 <script type="module">
-import init, { pair, list_docs, get_doc, protocol_version, max_doc_size } from "./pkg/scry_wasm.js";
+import init, { pair, list_docs, get_doc, protocol_version, max_doc_size } from "./pkg/docscrying_wasm.js";
 
 const $ = (id) => document.getElementById(id);
 const state = {
@@ -799,7 +799,7 @@ $("drawer-close").onclick = () => document.body.classList.remove("drawer-open");
 $("scrim").onclick = () => document.body.classList.remove("drawer-open");
 
 await init();
-console.log("scry reader: protocol v" + protocol_version());
+console.log("docscrying reader: protocol v" + protocol_version());
 </script>
 </body>
 </html>

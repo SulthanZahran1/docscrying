@@ -1,10 +1,10 @@
 [package]
-name = "scry"
+name = "docscrying"
 version = "0.1.0"
 edition = "2021"
 license = "EUPL-1.2"
-description = "Point scry at any codebase: it indexes every doc-like file and serves a local reader site; pair any other machine with a wormhole code."
-repository = "https://github.com/SulthanZahran1/scry"
+description = "Point docscrying at any codebase: it indexes every doc-like file and serves a local reader site; pair any other machine with a wormhole code."
+repository = "https://github.com/SulthanZahran1/docscrying"
 
 [dependencies]
 async-channel = "2"

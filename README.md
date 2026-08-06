@@ -1,10 +1,10 @@
-# scry
+# docscrying
 
 Point it at any codebase, read every scattered doc (md/html/rst/adoc/txt/pdf/docx) in a local website, pair from anywhere with a magic-wormhole-style code. Rust.
 
 ## What's here
 
-- `cli/` — the native CLI: `scry serve [dir]` (index + local reader site + wormhole server) and `scry open <code>` (pair and read through the encrypted pipe). Single binary, localhost-only reader, relay-v1 protocol.
+- `cli/` — the native CLI: `docscrying serve [dir]` (index + local reader site + wormhole server) and `docscrying open <code>` (pair and read through the encrypted pipe). Single binary, localhost-only reader, relay-v1 protocol.
 - `wasm/` — the browser client: wasm32 magic-wormhole pairing + relay-v1, plus the reader page (pairing page entry point). Build with `wasm-pack build --target web` (outputs `pkg/`).
 
 ## relay-v1

@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>scry reader</title>
+<title>docscrying reader</title>
 <style>
-/* scry reader site. One desaturated accent, mono data, no badges. */
+/* docscrying reader site. One desaturated accent, mono data, no badges. */
 :root {
   --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   --font-mono: ui-monospace, "Cascadia Mono", "JetBrains Mono", Menlo, Consolas, monospace;
@@ -450,7 +450,7 @@ body.collapsed #search { visibility: hidden; }
 <div id="app">
   <header id="header">
     <button id="burger" aria-label="Toggle tree">TREE</button>
-    <span class="wordmark">scry</span>
+    <span class="wordmark">docscrying</span>
     <span class="repo" id="header-repo">__SCRY_REPO__</span>
     <span class="count" id="header-count"></span>
     <span class="spacer"></span>
@@ -721,9 +721,9 @@ function renderDoc(d, body, contentType) {
     var themed = state.htmlTheme;
     var docHtml = themed ? wrapThemedHtml(body) : body;
     inner = ft +
-      '<div class="html-toggle" title="On: doc follows scry styling. Off: doc keeps its own css.">' +
+      '<div class="html-toggle" title="On: doc follows docscrying styling. Off: doc keeps its own css.">' +
       '<span class="switch' + (themed ? " on" : "") + '" id="html-theme-switch" role="switch" aria-checked="' + themed + '"></span>' +
-      "<span>scry theme</span></div>" +
+      "<span>docscrying theme</span></div>" +
       '<iframe class="html-frame' + (themed ? " themed" : "") + '" title="' + escapeHtml(baseOf(d.path)) + '" srcdoc="' + escapeHtml(docHtml).replace(/"/g, "&quot;") + '"></iframe>';
   } else if (contentType === "application/pdf" || contentType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
     inner = '<div class="bin-card">' +
@@ -818,7 +818,7 @@ function selectDoc(id) {
   }).catch(function () {
     state.loading = false;
     var view = renderError("The pairing pipe is closed",
-      "This session ended. Re-run scry open with a fresh code to reconnect.",
+      "This session ended. Re-run docscrying open with a fresh code to reconnect.",
       "DISCONNECTED");
     content.innerHTML = "";
     content.appendChild(view);

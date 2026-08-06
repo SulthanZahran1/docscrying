@@ -1,4 +1,4 @@
-//! `scry open <code>`: join a serve session over the wormhole pipe and serve
+//! `docscrying open <code>`: join a serve session over the wormhole pipe and serve
 //! the same reader site locally, proxying /api calls through the encrypted
 //! pipe. Foreground until Ctrl-C (exit 0).
 
@@ -28,7 +28,7 @@ pub fn run(args: OpenArgs) -> ExitCode {
     let code: Code = match code_str.parse() {
         Ok(code) => code,
         Err(_) => {
-            eprintln!("scry: invalid pairing code");
+            eprintln!("docscrying: invalid pairing code");
             return ExitCode::from(3);
         }
     };
@@ -36,7 +36,7 @@ pub fn run(args: OpenArgs) -> ExitCode {
     let (listener, port) = match http::listen(port) {
         Ok(ok) => ok,
         Err(e) => {
-            eprintln!("scry: cannot bind local reader port: {e}");
+            eprintln!("docscrying: cannot bind local reader port: {e}");
             return ExitCode::from(1);
         }
     };
@@ -69,7 +69,7 @@ pub fn run(args: OpenArgs) -> ExitCode {
     })
     .is_err()
     {
-        eprintln!("scry: cannot install Ctrl-C handler");
+        eprintln!("docscrying: cannot install Ctrl-C handler");
         return ExitCode::from(1);
     }
 
@@ -81,15 +81,15 @@ pub fn run(args: OpenArgs) -> ExitCode {
         match resp_rx.recv_timeout(Duration::from_millis(200)) {
             Ok(ClientResponse::Ready(Ok(()))) => break,
             Ok(ClientResponse::Ready(Err(e))) => {
-                eprintln!("scry: {e}");
+                eprintln!("docscrying: {e}");
                 return ExitCode::from(3);
             }
             Ok(other) => {
-                eprintln!("scry: unexpected reader thread response: {other:?}");
+                eprintln!("docscrying: unexpected reader thread response: {other:?}");
                 return ExitCode::from(3);
             }
             Err(RecvTimeoutError::Disconnected) => {
-                eprintln!("scry: pairing failed");
+                eprintln!("docscrying: pairing failed");
                 return ExitCode::from(3);
             }
             Err(RecvTimeoutError::Timeout) => continue,

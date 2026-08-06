@@ -1,4 +1,4 @@
-//! scry reader WASM client (ticket #12).
+//! docscrying reader WASM client (ticket #12).
 //!
 //! Pairing via magic-wormhole (fork-pinned, wasm-safe), then the relay-v1
 //! protocol rides entirely on the wormhole pipe: strict alternation, one
@@ -36,7 +36,7 @@ const MAX_DOC_SIZE: u64 = 25 * 1024 * 1024;
 /// Pairing deadline, matching the CLI's 60s timeout (decision #6).
 const PAIRING_TIMEOUT_MS: u32 = 60_000;
 
-const APP_ID: &str = "zahranm.cloud/scry";
+const APP_ID: &str = "zahranm.cloud/docscrying";
 const RENDEZVOUS_URL: &str = "wss://wormhole.zahranm.cloud/v1";
 
 thread_local! {
@@ -161,7 +161,7 @@ struct DataMsg {
 // Exported API
 // ---------------------------------------------------------------------------
 
-/// Pair with a scry session: join the code's mailbox, run the wormhole key
+/// Pair with a docscrying session: join the code's mailbox, run the wormhole key
 /// exchange, then complete the relay-v1 hello handshake (wait for the server
 /// hello, reply as reader, verify the version). On success the pipe is kept
 /// open for list_docs/get_doc. Bounded by a 60s deadline so an expired or
@@ -193,7 +193,7 @@ pub async fn pair(code: &str) -> Result<(), JsValue> {
 }
 
 async fn pair_inner(code: &str) -> Result<(), JsValue> {
-    log(&format!("[scry] pairing with code {}", code.split('-').next().unwrap_or("?")));
+    log(&format!("[docscrying] pairing with code {}", code.split('-').next().unwrap_or("?")));
     let parsed: Code = code.parse().map_err(|_| {
         JsValue::from_str("Malformed code: expected nameplate-password (e.g. 7-crossover-clockwork)")
     })?;
@@ -201,10 +201,10 @@ async fn pair_inner(code: &str) -> Result<(), JsValue> {
     let mailbox = MailboxConnection::connect(app_config(), parsed, false)
         .await
         .map_err(wh_err)?;
-    log("[scry] mailbox joined, running key exchange");
+    log("[docscrying] mailbox joined, running key exchange");
 
     let mut wormhole = Wormhole::connect(mailbox).await.map_err(wh_err)?;
-    log("[scry] key exchange complete");
+    log("[docscrying] key exchange complete");
 
     // relay-v1: the server speaks first.
     let hello: HelloMsg = wormhole
@@ -230,7 +230,7 @@ async fn pair_inner(code: &str) -> Result<(), JsValue> {
         .send_json(&json!({"type": "hello", "v": PROTOCOL_VERSION, "role": "reader"}))
         .await
         .map_err(wh_err)?;
-    log("[scry] paired, relay-v1 handshake complete");
+    log("[docscrying] paired, relay-v1 handshake complete");
 
     WORMHOLE.with(|c| *c.borrow_mut() = Some(wormhole));
     Ok(())

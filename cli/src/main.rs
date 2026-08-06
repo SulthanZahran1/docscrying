@@ -1,10 +1,10 @@
-//! scry: index every doc-like file in a codebase, serve a local reader site,
+//! docscrying: index every doc-like file in a codebase, serve a local reader site,
 //! pair any other machine with a wormhole code.
 //!
 //! Two commands:
-//! - `scry serve [dir]` runs the indexer, serves the reader site on
+//! - `docscrying serve [dir]` runs the indexer, serves the reader site on
 //!   127.0.0.1, and accepts readers over a magic-wormhole pipe (relay-v1).
-//! - `scry open <code>` joins an existing serve session over the pipe and
+//! - `docscrying open <code>` joins an existing serve session over the pipe and
 //!   serves the same reader site locally, proxying /api calls through the
 //!   encrypted wormhole.
 
@@ -20,16 +20,16 @@ use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
 
-pub const APP_ID: &str = "zahranm.cloud/scry";
+pub const APP_ID: &str = "zahranm.cloud/docscrying";
 pub const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const DEFAULT_RENDEZVOUS: &str = "wss://wormhole.zahranm.cloud/v1";
 pub const DEFAULT_TRANSIT: &str = "wss://transit.zahranm.cloud";
 pub const DEFAULT_PORT: u16 = 8765;
 pub const PAIRING_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
 
-/// scry: read every doc in a codebase from anywhere, via a pairing code.
+/// docscrying: read every doc in a codebase from anywhere, via a pairing code.
 #[derive(Parser, Debug)]
-#[command(name = "scry", version, about)]
+#[command(name = "docscrying", version, about)]
 struct Cli {
     #[command(subcommand)]
     command: Command,

@@ -1,4 +1,4 @@
-//! `scry serve`: index a directory, serve the reader site locally, accept
+//! `docscrying serve`: index a directory, serve the reader site locally, accept
 //! paired readers over the wormhole pipe (relay-v1).
 
 use std::path::PathBuf;
@@ -25,7 +25,7 @@ pub fn run(args: ServeArgs) -> ExitCode {
     let index = match index_dir(&dir) {
         Ok(index) => index,
         Err(e) => {
-            eprintln!("scry: {e}");
+            eprintln!("docscrying: {e}");
             return ExitCode::from(1);
         }
     };
@@ -35,7 +35,7 @@ pub fn run(args: ServeArgs) -> ExitCode {
     let (listener, port) = match http::listen(port) {
         Ok(ok) => ok,
         Err(e) => {
-            eprintln!("scry: cannot bind local reader port: {e}");
+            eprintln!("docscrying: cannot bind local reader port: {e}");
             return ExitCode::from(1);
         }
     };
@@ -59,7 +59,7 @@ pub fn run(args: ServeArgs) -> ExitCode {
         let outcome = pair_one(&rendezvous, &index, reader);
         match outcome {
             PairOutcome::Left => println!("reader {reader} left"),
-            PairOutcome::Failed(message) => eprintln!("scry: {message}"),
+            PairOutcome::Failed(message) => eprintln!("docscrying: {message}"),
         }
         reader += 1;
         if once {
@@ -117,5 +117,5 @@ fn random_password() -> String {
         state
     };
     let hex = |n: u64| format!("{n:08x}");
-    format!("scry-{}-{}", hex(next()), hex(next()))
+    format!("docscrying-{}-{}", hex(next()), hex(next()))
 }

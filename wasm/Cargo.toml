@@ -1,9 +1,9 @@
 [package]
-name = "scry-wasm"
+name = "docscrying-wasm"
 version = "0.1.0"
 edition = "2021"
 license = "EUPL-1.2"
-description = "scry reader WASM client: pair via magic-wormhole, read docs over relay-v1"
+description = "docscrying reader WASM client: pair via magic-wormhole, read docs over relay-v1"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
