@@ -102,7 +102,7 @@ pub fn map_pairing_error(e: &WormholeError) -> String {
     }
 }
 
-/// Run a pairing future with a 60s deadline. The future must be `Send + 'static`
+/// Run a pairing future with a 10-minute deadline. The future must be `Send + 'static`
 /// because it is boxed (the wormhole client may hold borrowed state).
 pub fn with_timeout<T>(
     fut: impl Future<Output = Result<T, WormholeError>> + Send + 'static,
@@ -112,7 +112,7 @@ pub fn with_timeout<T>(
         async move { fut.await.map_err(|e| map_pairing_error(&e)) }.boxed(),
         async {
             async_io::Timer::after(PAIRING_TIMEOUT).await;
-            Err::<T, String>("pairing timed out after 60s".to_string())
+            Err::<T, String>("pairing timed out after 10 minutes".to_string())
         }
         .boxed(),
     )

@@ -25,7 +25,7 @@ pub const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const DEFAULT_RENDEZVOUS: &str = "wss://wormhole.zahranm.cloud/v1";
 pub const DEFAULT_TRANSIT: &str = "wss://transit.zahranm.cloud";
 pub const DEFAULT_PORT: u16 = 8765;
-pub const PAIRING_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
+pub const PAIRING_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(600);
 
 /// docscrying: read every doc in a codebase from anywhere, via a pairing code.
 #[derive(Parser, Debug)]

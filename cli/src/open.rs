@@ -73,7 +73,7 @@ pub fn run(args: OpenArgs) -> ExitCode {
         return ExitCode::from(1);
     }
 
-    // Wait for the handshake (60s pairing deadline lives in the thread).
+    // Wait for the handshake (10-minute pairing deadline lives in the thread).
     loop {
         if interrupted.load(Ordering::Relaxed) {
             return ExitCode::SUCCESS;
