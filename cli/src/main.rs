@@ -8,6 +8,7 @@
 //!   serves the same reader site locally, proxying /api calls through the
 //!   encrypted wormhole.
 
+mod github;
 mod http;
 mod index;
 mod open;
@@ -15,7 +16,6 @@ mod protocol;
 mod serve;
 mod site;
 
-use std::path::PathBuf;
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
@@ -45,8 +45,9 @@ enum Command {
 
 #[derive(clap::Args, Debug)]
 struct ServeArgs {
-    /// Directory to index (defaults to the current directory)
-    dir: Option<PathBuf>,
+    /// Directory to index (defaults to the current directory), or
+    /// `github:owner/repo[@ref]` to serve a GitHub repo directly (no local clone)
+    dir: Option<String>,
     /// Local reader port (falls back to the next free port if busy)
     #[arg(long, default_value_t = DEFAULT_PORT)]
     port: u16,

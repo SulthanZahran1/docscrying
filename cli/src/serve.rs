@@ -1,12 +1,12 @@
 //! `docscrying serve`: index a directory, serve the reader site locally, accept
 //! paired readers over the wormhole pipe (relay-v1).
 
-use std::path::PathBuf;
 use std::process::ExitCode;
 use std::thread;
 
 use magic_wormhole::{MailboxConnection, Password, Wormhole};
 
+use crate::github;
 use crate::http::{self, Response};
 use crate::index::{fmt_size, index_dir, Index};
 use crate::protocol::{self, server_loop, WormholePipe};
@@ -21,16 +21,51 @@ pub fn run(args: ServeArgs) -> ExitCode {
         transit: _transit,
         once,
     } = args;
-    let dir = dir.unwrap_or_else(|| PathBuf::from("."));
-    let index = match index_dir(&dir) {
-        Ok(index) => index,
-        Err(e) => {
-            eprintln!("docscrying: {e}");
-            return ExitCode::from(1);
-        }
+    let dir = dir.unwrap_or_else(|| ".".to_string());
+    let (index, repo, source_note) = if let Some(spec) = dir.strip_prefix("github:") {
+        // GitHub source: download the tarball at the resolved commit, index
+        // the extracted tree exactly like a local directory.
+        let src = match github::fetch(spec) {
+            Ok(src) => src,
+            Err(e) => {
+                eprintln!("docscrying: {e}");
+                return ExitCode::from(1);
+            }
+        };
+        let index = match index_dir(&src.dir) {
+            Ok(index) => index,
+            Err(e) => {
+                eprintln!("docscrying: {e}");
+                return ExitCode::from(1);
+            }
+        };
+        let note = format!(
+            "github:{} @ {} ({})",
+            src.display,
+            &src.sha[..src.sha.len().min(12)],
+            src.reference.as_deref().unwrap_or("default branch")
+        );
+        (index, src.display, note)
+    } else {
+        let path = std::path::PathBuf::from(&dir);
+        let index = match index_dir(&path) {
+            Ok(index) => index,
+            Err(e) => {
+                eprintln!("docscrying: {e}");
+                return ExitCode::from(1);
+            }
+        };
+        let repo = std::path::PathBuf::from(&dir)
+            .file_name()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_else(|| ".".to_string());
+        (index, repo, String::new())
     };
     let total: u64 = index.docs.iter().map(|d| d.size).sum();
     println!("indexed {} docs ({})", index.docs.len(), fmt_size(total));
+    if !source_note.is_empty() {
+        println!("source:        {source_note}");
+    }
 
     let (listener, port) = match http::listen(port) {
         Ok(ok) => ok,
@@ -42,10 +77,6 @@ pub fn run(args: ServeArgs) -> ExitCode {
     println!("local reader:  http://localhost:{port}");
     println!("pairing page:  https://wormhole.zahranm.cloud");
 
-    let repo = dir
-        .file_name()
-        .map(|s| s.to_string_lossy().to_string())
-        .unwrap_or_else(|| ".".to_string());
     let site_index = index.clone();
     let http_thread = thread::spawn(move || {
         let handler = move |method: &str, path: &str| -> Response {

@@ -193,9 +193,14 @@ pub async fn pair(code: &str) -> Result<(), JsValue> {
 }
 
 async fn pair_inner(code: &str) -> Result<(), JsValue> {
-    log(&format!("[docscrying] pairing with code {}", code.split('-').next().unwrap_or("?")));
+    log(&format!(
+        "[docscrying] pairing with code {}",
+        code.split('-').next().unwrap_or("?")
+    ));
     let parsed: Code = code.parse().map_err(|_| {
-        JsValue::from_str("Malformed code: expected nameplate-password (e.g. 7-crossover-clockwork)")
+        JsValue::from_str(
+            "Malformed code: expected nameplate-password (e.g. 7-crossover-clockwork)",
+        )
     })?;
 
     let mailbox = MailboxConnection::connect(app_config(), parsed, false)
@@ -294,8 +299,16 @@ async fn get_inner(id: u32) -> Result<JsValue, JsValue> {
 
         let content_type = data.content_type.unwrap_or_default();
         let result = js_sys::Object::new();
-        Reflect::set(&result, &"status".into(), &JsValue::from_f64(data.status as f64))?;
-        Reflect::set(&result, &"content_type".into(), &JsValue::from_str(&content_type))?;
+        Reflect::set(
+            &result,
+            &"status".into(),
+            &JsValue::from_f64(data.status as f64),
+        )?;
+        Reflect::set(
+            &result,
+            &"content_type".into(),
+            &JsValue::from_str(&content_type),
+        )?;
         if data.status == 200 {
             let bytes = js_sys::Uint8Array::new_with_length(body.len() as u32);
             bytes.copy_from(&body);

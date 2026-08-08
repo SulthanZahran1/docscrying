@@ -11,7 +11,16 @@ use serde::{Deserialize, Serialize};
 pub const MAX_DOC_SIZE: u64 = 25 * 1024 * 1024;
 
 const SKIP_DIRS: &[&str] = &[
-    ".git", ".hg", ".svn", "target", "node_modules", "dist", "build", ".venv", "vendor", ".next",
+    ".git",
+    ".hg",
+    ".svn",
+    "target",
+    "node_modules",
+    "dist",
+    "build",
+    ".venv",
+    "vendor",
+    ".next",
 ];
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -147,7 +156,8 @@ mod tests {
     use super::*;
 
     fn corpus() -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("docscrying-index-test-{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("docscrying-index-test-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(dir.join("docs/nested")).unwrap();
         fs::create_dir_all(dir.join("target")).unwrap();

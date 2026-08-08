@@ -12,7 +12,7 @@ use std::time::Duration;
 use magic_wormhole::{Code, MailboxConnection, Wormhole};
 
 use crate::http::{self, Response};
-use crate::protocol::{self, Client, ClientResponse, WormholePipe, reader_loop};
+use crate::protocol::{self, reader_loop, Client, ClientResponse, WormholePipe};
 use crate::site;
 use crate::OpenArgs;
 

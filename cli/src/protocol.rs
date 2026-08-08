@@ -172,8 +172,8 @@ pub fn fetch_doc(index: &Index, id: u64) -> FetchedDoc {
 /// Serve one paired session: hello exchange, then answer list/get until EOF.
 pub fn server_loop<P: Pipe>(mut pipe: P, index: &Index) -> Result<(), String> {
     pipe.send_json(&json!({"type": "hello", "v": PROTOCOL_VERSION, "role": "server"}))?;
-    let hello: Hello = serde_json::from_value(pipe.recv_json()?)
-        .map_err(|e| format!("bad reader hello: {e}"))?;
+    let hello: Hello =
+        serde_json::from_value(pipe.recv_json()?).map_err(|e| format!("bad reader hello: {e}"))?;
     if hello.v != PROTOCOL_VERSION {
         let msg = format!(
             "server speaks protocol {PROTOCOL_VERSION}, you speak {}",
@@ -351,7 +351,8 @@ impl Client {
     pub fn get(&self, id: u64) -> Result<GetResult, String> {
         let req = self.req.lock().unwrap();
         let resp = self.resp.lock().unwrap();
-        req.send(ClientRequest::Get(id)).map_err(|e| e.to_string())?;
+        req.send(ClientRequest::Get(id))
+            .map_err(|e| e.to_string())?;
         match resp.recv().map_err(|e| e.to_string())? {
             ClientResponse::Doc(result) => Ok(result),
             ClientResponse::Failed(e) => Err(e),
@@ -403,7 +404,8 @@ mod tests {
     }
 
     fn temp_corpus() -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("docscrying-protocol-test-{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("docscrying-protocol-test-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(dir.join("docs")).unwrap();
         fs::write(dir.join("README.md"), "# hi\n\nbody text\n").unwrap();
@@ -452,8 +454,14 @@ mod tests {
             "got: {message}"
         );
 
-        let err = server.join().unwrap().expect_err("server must reject mismatch");
-        assert!(err.contains("server speaks protocol 1, you speak 2"), "got: {err}");
+        let err = server
+            .join()
+            .unwrap()
+            .expect_err("server must reject mismatch");
+        assert!(
+            err.contains("server speaks protocol 1, you speak 2"),
+            "got: {err}"
+        );
     }
 
     #[test]
@@ -479,8 +487,14 @@ mod tests {
             }
             other => panic!("expected Ready(Err), got {other:?}"),
         }
-        let err = reader.join().unwrap().expect_err("reader must reject mismatch");
-        assert!(err.contains("reader speaks protocol 1, you speak 2"), "got: {err}");
+        let err = reader
+            .join()
+            .unwrap()
+            .expect_err("reader must reject mismatch");
+        assert!(
+            err.contains("reader speaks protocol 1, you speak 2"),
+            "got: {err}"
+        );
         server.join().unwrap();
     }
 
@@ -508,7 +522,12 @@ mod tests {
     fn get_ok_returns_body_with_content_type() {
         let dir = temp_corpus();
         let index = index_dir(&dir).unwrap();
-        let readme_id = index.docs.iter().find(|d| d.path == "README.md").unwrap().id;
+        let readme_id = index
+            .docs
+            .iter()
+            .find(|d| d.path == "README.md")
+            .unwrap()
+            .id;
         let (client, server) = run_session(index);
 
         match client.get(readme_id).unwrap() {
@@ -531,7 +550,12 @@ mod tests {
     fn get_missing_doc_is_404() {
         let dir = temp_corpus();
         let index = index_dir(&dir).unwrap();
-        let readme_id = index.docs.iter().find(|d| d.path == "README.md").unwrap().id;
+        let readme_id = index
+            .docs
+            .iter()
+            .find(|d| d.path == "README.md")
+            .unwrap()
+            .id;
         fs::remove_file(dir.join("README.md")).unwrap();
         let (client, server) = run_session(index);
 
@@ -595,9 +619,7 @@ mod tests {
             "invalid pairing code"
         );
         assert_eq!(
-            map_pairing_error(&WormholeError::UnclaimedNameplate(
-                "1".parse().unwrap()
-            )),
+            map_pairing_error(&WormholeError::UnclaimedNameplate("1".parse().unwrap())),
             "wrong or expired pairing code"
         );
         assert_eq!(

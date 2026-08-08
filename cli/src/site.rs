@@ -45,7 +45,10 @@ pub fn handle_direct(method: &str, path: &str, index: &Index, repo: &str) -> Res
             match doc {
                 doc if doc.status == 200 => Response {
                     status: 200,
-                    content_type: doc.content_type.unwrap_or("application/octet-stream").to_string(),
+                    content_type: doc
+                        .content_type
+                        .unwrap_or("application/octet-stream")
+                        .to_string(),
                     body: doc.body.unwrap_or_default(),
                 },
                 doc => Response::json(
@@ -73,7 +76,10 @@ pub fn handle_proxied(method: &str, path: &str, client: &Client, code: &str) -> 
                 serde_json::to_vec(&serde_json::json!({"docs": docs}))
                     .unwrap_or_else(|_| b"{}".to_vec()),
             ),
-            Err(e) => Response::json(502, serde_json::to_vec(&serde_json::json!({"error": e})).unwrap_or_default()),
+            Err(e) => Response::json(
+                502,
+                serde_json::to_vec(&serde_json::json!({"error": e})).unwrap_or_default(),
+            ),
         },
         p if p.starts_with("/api/doc/") => {
             let id = p.trim_start_matches("/api/doc/");
@@ -82,17 +88,16 @@ pub fn handle_proxied(method: &str, path: &str, client: &Client, code: &str) -> 
             };
             match client.get(id) {
                 Ok(GetResult::Ok {
-                    content_type,
-                    body,
-                    ..
+                    content_type, body, ..
                 }) => Response {
                     status: 200,
                     content_type,
                     body,
                 },
-                Ok(GetResult::Err { status, message }) => {
-                    Response::json(status, serde_json::to_vec(&serde_json::json!({"error": message})).unwrap_or_default())
-                }
+                Ok(GetResult::Err { status, message }) => Response::json(
+                    status,
+                    serde_json::to_vec(&serde_json::json!({"error": message})).unwrap_or_default(),
+                ),
                 Err(e) => Response::json(
                     502,
                     serde_json::to_vec(&serde_json::json!({"error": e})).unwrap_or_default(),
