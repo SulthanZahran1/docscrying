@@ -60,6 +60,19 @@ struct ServeArgs {
     /// Serve a single pairing then exit
     #[arg(long)]
     once: bool,
+    /// Hosted mode: skip wormhole pairing, serve HTTP until killed
+    /// (for always-on deployments behind a reverse proxy)
+    #[arg(long)]
+    hosted: bool,
+    /// Address to bind in hosted mode (default 0.0.0.0; local mode always binds 127.0.0.1)
+    #[arg(long, default_value = "0.0.0.0")]
+    bind: String,
+    /// GitHub token for private repos (also read from GITHUB_TOKEN)
+    #[arg(long, env = "GITHUB_TOKEN")]
+    token: Option<String>,
+    /// Hosted mode: re-fetch + re-index the GitHub source every N minutes
+    #[arg(long)]
+    refresh: Option<u64>,
 }
 
 #[derive(clap::Args, Debug)]

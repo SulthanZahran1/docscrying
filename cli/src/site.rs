@@ -24,13 +24,15 @@ fn escape_attr(s: &str) -> String {
 }
 
 /// Serve mode: read straight from the index on this machine.
-pub fn handle_direct(method: &str, path: &str, index: &Index, repo: &str) -> Response {
+/// `code` is what the header pill shows ("local" for local serve, "hosted"
+/// for hosted mode — no pairing code exists in either).
+pub fn handle_direct(method: &str, path: &str, index: &Index, repo: &str, code: &str) -> Response {
     if method != "GET" {
         return Response::text(400, "only GET is supported");
     }
     let path = path.split('?').next().unwrap_or(path);
     match path {
-        "/" | "/index.html" => page(repo, "local"),
+        "/" | "/index.html" => page(repo, code),
         "/api/tree" => Response::json(
             200,
             serde_json::to_vec(&serde_json::json!({"docs": index.docs}))

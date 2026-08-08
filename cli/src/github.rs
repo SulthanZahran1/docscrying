@@ -64,22 +64,27 @@ fn resolve_sha(
     owner: &str,
     repo: &str,
     reference: Option<&str>,
+    token: Option<&str>,
 ) -> Result<(String, Option<String>), String> {
     let api = |path: &str| -> Result<serde_json::Value, String> {
         let url = format!("https://api.github.com{path}");
-        let out = Command::new("curl")
-            .args([
-                "-fsSL",
-                "--max-time",
-                "30",
-                "-H",
-                "Accept: application/vnd.github+json",
-                "-H",
-                "User-Agent: docscrying",
-                "-H",
-                "X-GitHub-Api-Version: 2022-11-28",
-                &url,
-            ])
+        let mut cmd = Command::new("curl");
+        cmd.args([
+            "-fsSL",
+            "--max-time",
+            "30",
+            "-H",
+            "Accept: application/vnd.github+json",
+            "-H",
+            "User-Agent: docscrying",
+            "-H",
+            "X-GitHub-Api-Version: 2022-11-28",
+        ]);
+        if let Some(t) = token {
+            cmd.args(["-H", &format!("Authorization: Bearer {t}")]);
+        }
+        cmd.arg(&url);
+        let out = cmd
             .output()
             .map_err(|e| format!("github source: cannot run curl: {e}"))?;
         if !out.status.success() {
@@ -117,18 +122,22 @@ fn resolve_sha(
 
 /// Download and extract the repo at the resolved commit into a fresh temp dir.
 /// Always a fresh snapshot per serve (no caching); /tmp is ephemeral by design.
-pub fn fetch(spec: &str) -> Result<GithubSource, String> {
+/// `token` (optional) enables private repos.
+pub fn fetch(spec: &str, token: Option<&str>) -> Result<GithubSource, String> {
     let (owner, repo, reference) = parse(spec)?;
-    let (sha, branch) = resolve_sha(&owner, &repo, reference.as_deref())?;
+    let (sha, branch) = resolve_sha(&owner, &repo, reference.as_deref(), token)?;
     let dir = std::env::temp_dir().join(format!("docscrying-github-{owner}-{repo}-{sha}"));
     std::fs::create_dir_all(&dir)
         .map_err(|e| format!("github source: cannot create temp dir: {e}"))?;
     let tarball = dir.join("repo.tar.gz");
     let url = format!("https://codeload.github.com/{owner}/{repo}/tar.gz/{sha}");
-    let out = Command::new("curl")
-        .args(["-fsSL", "--max-time", "120", "-o"])
-        .arg(&tarball)
-        .arg(&url)
+    let mut cmd = Command::new("curl");
+    cmd.args(["-fsSL", "--max-time", "120", "-o"]).arg(&tarball);
+    if let Some(t) = token {
+        cmd.args(["-H", &format!("Authorization: Bearer {t}")]);
+    }
+    cmd.arg(&url);
+    let out = cmd
         .output()
         .map_err(|e| format!("github source: cannot run curl: {e}"))?;
     if !out.status.success() {

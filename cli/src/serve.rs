@@ -1,8 +1,11 @@
-//! `docscrying serve`: index a directory, serve the reader site locally, accept
-//! paired readers over the wormhole pipe (relay-v1).
+//! `docscrying serve`: index a directory (or GitHub repo), serve the reader
+//! site, and either accept paired readers over the wormhole pipe (relay-v1)
+//! or run hosted (always-on HTTP, no pairing) for reverse-proxy deployments.
 
 use std::process::ExitCode;
+use std::sync::{Arc, RwLock};
 use std::thread;
+use std::time::Duration;
 
 use magic_wormhole::{MailboxConnection, Password, Wormhole};
 
@@ -20,12 +23,16 @@ pub fn run(args: ServeArgs) -> ExitCode {
         rendezvous,
         transit: _transit,
         once,
+        hosted,
+        bind,
+        token,
+        refresh,
     } = args;
     let dir = dir.unwrap_or_else(|| ".".to_string());
-    let (index, repo, source_note) = if let Some(spec) = dir.strip_prefix("github:") {
+    let (index, repo, source_note, github_spec) = if let Some(spec) = dir.strip_prefix("github:") {
         // GitHub source: download the tarball at the resolved commit, index
         // the extracted tree exactly like a local directory.
-        let src = match github::fetch(spec) {
+        let src = match github::fetch(spec, token.as_deref()) {
             Ok(src) => src,
             Err(e) => {
                 eprintln!("docscrying: {e}");
@@ -45,7 +52,7 @@ pub fn run(args: ServeArgs) -> ExitCode {
             &src.sha[..src.sha.len().min(12)],
             src.reference.as_deref().unwrap_or("default branch")
         );
-        (index, src.display, note)
+        (index, src.display, note, Some(spec.to_string()))
     } else {
         let path = std::path::PathBuf::from(&dir);
         let index = match index_dir(&path) {
@@ -55,16 +62,20 @@ pub fn run(args: ServeArgs) -> ExitCode {
                 return ExitCode::from(1);
             }
         };
-        let repo = std::path::PathBuf::from(&dir)
+        let repo = path
             .file_name()
             .map(|s| s.to_string_lossy().to_string())
             .unwrap_or_else(|| ".".to_string());
-        (index, repo, String::new())
+        (index, repo, String::new(), None)
     };
     let total: u64 = index.docs.iter().map(|d| d.size).sum();
     println!("indexed {} docs ({})", index.docs.len(), fmt_size(total));
     if !source_note.is_empty() {
         println!("source:        {source_note}");
+    }
+
+    if hosted {
+        return run_hosted(index, repo, port, &bind, github_spec, token, refresh);
     }
 
     let (listener, port) = match http::listen(port) {
@@ -80,7 +91,7 @@ pub fn run(args: ServeArgs) -> ExitCode {
     let site_index = index.clone();
     let http_thread = thread::spawn(move || {
         let handler = move |method: &str, path: &str| -> Response {
-            site::handle_direct(method, path, &site_index, &repo)
+            site::handle_direct(method, path, &site_index, &repo, "local")
         };
         http::run(listener, handler)
     });
@@ -98,6 +109,64 @@ pub fn run(args: ServeArgs) -> ExitCode {
         }
     }
     let _ = http_thread;
+    ExitCode::SUCCESS
+}
+
+/// Hosted mode: bind the given address, serve the reader over plain HTTP
+/// forever (no wormhole pairing). Optional `--refresh N` re-fetches and
+/// re-indexes a GitHub source every N minutes, swapping the index live.
+fn run_hosted(
+    index: Index,
+    repo: String,
+    port: u16,
+    bind: &str,
+    github_spec: Option<String>,
+    token: Option<String>,
+    refresh: Option<u64>,
+) -> ExitCode {
+    let listener = match std::net::TcpListener::bind((bind, port)) {
+        Ok(l) => l,
+        Err(e) => {
+            eprintln!("docscrying: cannot bind {bind}:{port}: {e}");
+            return ExitCode::from(1);
+        }
+    };
+    println!("hosted reader: http://{bind}:{port} (no pairing)");
+
+    let shared: Arc<RwLock<Index>> = Arc::new(RwLock::new(index));
+
+    // Refresh thread: re-fetch the GitHub source, re-index, swap live.
+    if let (Some(spec), Some(mins)) = (github_spec, refresh) {
+        let shared = shared.clone();
+        let repo_name = repo.clone();
+        let token = token.clone();
+        thread::spawn(move || loop {
+            thread::sleep(Duration::from_secs(mins * 60));
+            match github::fetch(&spec, token.as_deref()) {
+                Ok(src) => match index_dir(&src.dir) {
+                    Ok(fresh) => {
+                        let n = fresh.docs.len();
+                        let total: u64 = fresh.docs.iter().map(|d| d.size).sum();
+                        let sha = &src.sha[..src.sha.len().min(12)];
+                        *shared.write().unwrap() = fresh;
+                        println!(
+                            "refreshed {repo_name} @ {sha}: {n} docs ({})",
+                            fmt_size(total)
+                        );
+                    }
+                    Err(e) => eprintln!("docscrying: refresh re-index failed: {e}"),
+                },
+                Err(e) => eprintln!("docscrying: refresh fetch failed: {e}"),
+            }
+        });
+    }
+
+    let site_index = shared.clone();
+    let handler = move |method: &str, path: &str| -> Response {
+        let index = site_index.read().unwrap();
+        site::handle_direct(method, path, &index, &repo, "hosted")
+    };
+    http::run(listener, handler);
     ExitCode::SUCCESS
 }
 

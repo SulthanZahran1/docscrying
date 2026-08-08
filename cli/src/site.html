@@ -32,13 +32,17 @@ body {
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
 }
+html, body { overflow-x: hidden; }
+button, input { touch-action: manipulation; }
 #app {
   display: grid;
   grid-template-columns: 320px 1fr;
   grid-template-rows: 44px 1fr 26px;
   height: 100vh;
   height: 100dvh;
+  min-width: 0;
   transition: grid-template-columns 0.2s var(--ease);
 }
 body.collapsed #app { grid-template-columns: 0 1fr; }
@@ -53,6 +57,7 @@ body.collapsed #search { visibility: hidden; }
   gap: 12px;
   padding: 0 16px;
   height: 44px;
+  min-width: 0;
   background: var(--panel);
   border-bottom: 1px solid var(--border);
 }
@@ -79,12 +84,18 @@ body.collapsed #search { visibility: hidden; }
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
+  flex-shrink: 1;
 }
 #header .count {
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-faint);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex-shrink: 1;
 }
 #header .spacer { flex: 1; }
 #header .code-pill {
@@ -96,6 +107,11 @@ body.collapsed #search { visibility: hidden; }
   padding: 3px 10px;
   letter-spacing: 0.03em;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex-shrink: 1;
+  max-width: 40vw;
   cursor: default;
 }
 #burger {
@@ -425,13 +441,14 @@ body.collapsed #search { visibility: hidden; }
 /* mobile */
 #scrim { display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); z-index: 40; }
 @media (max-width: 767px) {
-  #app { grid-template-columns: 1fr; }
+  #app { grid-template-columns: minmax(0, 1fr); }
   #sidebar {
     position: fixed;
     top: 0;
     bottom: 0;
     left: 0;
     width: min(320px, 84vw);
+    min-width: 0;
     z-index: 50;
     transform: translateX(-102%);
     transition: transform 0.22s var(--ease);
@@ -439,7 +456,7 @@ body.collapsed #search { visibility: hidden; }
   }
   body.drawer-open #sidebar { transform: translateX(0); }
   body.drawer-open #scrim { display: block; }
-  #content { padding: 20px 18px 80px; }
+  #content { padding: 20px 18px 80px; overflow-x: hidden; }
   #crumbs { padding: 8px 12px; }
   #crumbs .doc-meta { display: none; }
 }
@@ -777,6 +794,9 @@ function selectDoc(id) {
   if (!d || state.loading) return;
   state.selected = id;
   state.loading = true;
+
+  // Mobile: selecting a doc closes the drawer (matches the wasm reader).
+  document.body.classList.remove("drawer-open");
 
   renderTree();
   updateCrumbs(d);
